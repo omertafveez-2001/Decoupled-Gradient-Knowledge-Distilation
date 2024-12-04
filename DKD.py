@@ -51,12 +51,14 @@ def cat_mask(t, mask1, mask2):
 
 class DKD(nn.Module):
     def __init__(self, student, teacher, cfg):
-        super(DKD, self).__init__(student, teacher)
+        super(DKD, self).__init__()
         self.ce_loss_weight = cfg.ce_weight
         self.alpha = cfg.alpha
         self.beta = cfg.beta
         self.temperature = cfg.temperature
         self.warmup = cfg.warmup
+        self.student = student
+        self.teacher = teacher
     
     def forward_train(self, image, target, **kwargs):
         logits_student = self.student(image)
