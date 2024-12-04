@@ -46,6 +46,7 @@ if __name__ == "__main__":
     
     teachermodel = TeacherModel(args.teachermodel, num_classes)
     studentmodel = StudentModel(args.studentmodel, num_classes)
+    print("============================================")
     print(f"Using device: {device}")
     print(f"Teacher Model: {args.teachermodel} with parameters {count_parameters(teachermodel)}")
     print(f"Student Model {args.studentmodel} with parameters {count_parameters(studentmodel)}")
@@ -54,6 +55,7 @@ if __name__ == "__main__":
     print(f"Distillation Epochs {args.distillepochs}")
     print(f"Dataset: {args.dataset}")
     print(f"Batch Size: {args.batchsize}")
+    print("============================================")
 
 
     teacheroptimizer = torch.optim.Adam(teachermodel.parameters(), lr=args.learning_rate)
@@ -63,7 +65,14 @@ if __name__ == "__main__":
     # finetuning stage
     criterion = nn.CrossEntropyLoss()
     
+    print("Finetuning teacher model...")
     teacher = Finetune(teachermodel, train_loader, test_loader, teacheroptimizer, criterion, device, args.teacherepochs ,args.teacher_dir)
     teacher.train("logs", "models")
+    print("Finetuning Student Model")
     student = Finetune(studentmodel, train_loader, test_loader, studentoptimizer, criterion, device, args.studentepochs, args.student_dir)
     student.train("logs", "models")
+
+    # distillation stage
+    print("Distilling knowledge...")
+    kd_model = KnowledgeDistillation(teachermodel, studentmodel, train_loader, test_loader, distillationoptimizer, device,args)
+    kd_model.train("logs", "models")

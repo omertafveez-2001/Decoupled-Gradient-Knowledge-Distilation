@@ -3,6 +3,7 @@ import torch.nn as nn
 import csv
 from tqdm import tqdm
 from DKD import DKD
+import os
 
 class KnowledgeDistillation:
     def __init__(self, teacher, student, train_loader, test_loader, optimizer, device, cfg):
@@ -26,6 +27,8 @@ class KnowledgeDistillation:
         self.optimizer = optimizer
         self.device = device
         self.DKD = DKD(student, teacher, cfg)
+        self.epochs = cfg.distillepochs
+        self.output_dir = cfg.distill_dir
         
         self.teacher.to(device)
         self.student.to(device)
@@ -82,7 +85,7 @@ class KnowledgeDistillation:
         return 100 * correct / total
 
 
-    def train(self, epochs, output_dir):
+    def train(self, log_path, model_path):
         """
         Trains the student model with knowledge distillation over multiple epochs.
 
@@ -90,8 +93,8 @@ class KnowledgeDistillation:
             epochs (int): Number of epochs for training.
             output_dir (str): Directory for saving the student model and logs.
         """
-        log_path = f"log/{output_dir}.csv"
-        model_path = f"models/{output_dir}.pth"
+        log_path = os.path.join(log_path, f"{self.output_dir}.csv")
+        model_path = os.path.join(model_path, f"{self.output_dir}.pth")
 
         self.teacher.eval()
         self.student.train()
@@ -100,11 +103,11 @@ class KnowledgeDistillation:
             writer = csv.writer(f)
             writer.writerow(["epochs", "train_loss", "train_acc", "test_acc"])
 
-            for epoch in tqdm(range(epochs), desc="KD Epochs"):
+            for epoch in tqdm(range(self.epochs), desc="KD Epochs"):
                 train_loss, train_accuracy = self.train_kd_step()
                 test_accuracy = self.test()
                 
-                print(f"Epoch {epoch+1}/{epochs}, Loss: {train_loss:.4f}, "
+                print(f"Epoch {epoch+1}/{self.epochs}, Loss: {train_loss:.4f}, "
                       f"Train Accuracy: {train_accuracy:.2f}%, Test Accuracy: {test_accuracy:.2f}%")
 
                 writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy])
