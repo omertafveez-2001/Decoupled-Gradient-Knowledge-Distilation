@@ -12,7 +12,7 @@ if __name__ == "__main__":
     parser.add_argument("--teachermodel", type=str, default="resnet18", help="Teacher model architecture")
     parser.add_argument("--studentmodel", type=str, default="resnet18", help="Student model architecture")
     parser.add_argument("--dataset", type=str, default="CIFAR-10", help="Dataset to use")
-    parser.add_argument("--batchsize", type=int, default=128, help="Batch size for training")
+    parser.add_argument("--batchsize", type=int, default=32, help="Batch size for training")
     parser.add_argument("--teacherepochs", type=int, default=10, help="Number of epochs to finetune the teacher model")
     parser.add_argument("--studentepochs", type=int, default=10, help="Number of epochs to finetune the student model")
     parser.add_argument("--distillepochs", type=int, default=10, help="Number of epochs to distill knowledge to the student model")
@@ -32,13 +32,9 @@ if __name__ == "__main__":
     batch_size = args.batchsize
     num_workers = 2
     
-    os.makedirs(f'{args.student_dir}/model', exist_ok=True)
-    os.makedirs(f'{args.student_dir}/log', exist_ok=True)
-    os.makedirs(f'{args.teacher_dir}/model', exist_ok=True)
-    os.makedirs(f'{args.teacher_dir}/log', exist_ok=True)
-    os.makedirs(f'{args.distill_dir}/model', exist_ok=True)
-    os.makedirs(f'{args.distill_dir}/log', exist_ok=True)
-
+    os.makedirs(f'models', exist_ok=True)
+    os.makedirs(f'logs', exist_ok=True)
+    
     train_ds, test_ds = get_dataset(args.dataset)(root=f'./data/{args.dataset}')
     train_loader = get_dataloader(train_ds, batch_size, is_train=True, num_workers=num_workers)
     test_loader = get_dataloader(test_ds, batch_size, is_train=False, num_workers=num_workers)
@@ -57,6 +53,7 @@ if __name__ == "__main__":
     print(f"Student Finetuning Epochs {args.studentepochs}")
     print(f"Distillation Epochs {args.distillepochs}")
     print(f"Dataset: {args.dataset}")
+    print(f"Batch Size: {args.batchsize}")
 
 
     teacheroptimizer = torch.optim.Adam(teachermodel.parameters(), lr=args.learning_rate)
@@ -65,11 +62,8 @@ if __name__ == "__main__":
 
     # finetuning stage
     criterion = nn.CrossEntropyLoss()
+    
     teacher = Finetune(teachermodel, train_loader, test_loader, teacheroptimizer, criterion, device, args.teacherepochs ,args.teacher_dir)
-    teacher.train()
+    teacher.train("logs", "models")
     student = Finetune(studentmodel, train_loader, test_loader, studentoptimizer, criterion, device, args.studentepochs, args.student_dir)
-    student.train()
-
-
-
-
+    student.train("logs", "models")

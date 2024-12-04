@@ -6,7 +6,7 @@ from typing import Optional
 
 IMAGE_SIZE = 224
 TRAIN_TFMS = transforms.Compose([
-    transforms.Resize((224, 2224)),
+    transforms.Resize((224, 224)),
     transforms.ToTensor(),
 ])
 TEST_TFMS = transforms.Compose([

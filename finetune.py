@@ -1,6 +1,7 @@
 import torch
 import csv
 from tqdm import tqdm
+import os
 
 class Finetune:
     def __init__(self, model, train_loader, test_loader, optimizer, criterion, device, epochs, output_dir):
@@ -74,7 +75,7 @@ class Finetune:
 
         return 100 * correct / total
 
-    def train(self):
+    def train(self, log_path, model_path):
         """
         Trains the model over a specified number of epochs.
 
@@ -82,8 +83,8 @@ class Finetune:
             epochs (int): Number of training epochs.
             output_dir (str): Directory for saving the model and logs.
         """
-        log_path = f"log/{self.output_dir}.csv"
-        model_path = f"models/{self.output_dir}.pth"
+        log_path = os.path.join(log_path, f"{self.output_dir}.csv")
+        model_path = os.path.join(model_path, f"{self.output_dir}.pth")
 
         with open(log_path, 'w') as f:
             writer = csv.writer(f)
