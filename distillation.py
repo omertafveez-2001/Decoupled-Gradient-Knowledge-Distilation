@@ -48,7 +48,7 @@ class KnowledgeDistillation:
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             self.optimizer.zero_grad()
 
-            logits_student, losses = DKD.forward_train(inputs, labels)
+            logits_student, losses = self.DKD.forward_train(inputs, labels)
             loss = losses["loss_kd"] # we only use Decoupled Loss over here.
             loss.backward()
             self.optimizer.step()

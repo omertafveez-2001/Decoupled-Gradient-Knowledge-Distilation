@@ -59,6 +59,7 @@ class DKD(nn.Module):
         self.warmup = cfg.warmup
         self.student = student
         self.teacher = teacher
+        self.epochs = cfg.distillepochs
     
     def forward_train(self, image, target, **kwargs):
         logits_student = self.student(image)
@@ -66,7 +67,7 @@ class DKD(nn.Module):
             logits_teacher, _ = self.teacher(image)
 
         loss_ce = self.ce_loss_weight * F.cross_entropy(logits_student, target)
-        loss_dkd = min(kwargs["epoch"] / self.warmup, 1.0) * dkd_loss(
+        loss_dkd = min(self.epochs / self.warmup, 1.0) * dkd_loss(
             logits_student,
             logits_teacher,
             target,
