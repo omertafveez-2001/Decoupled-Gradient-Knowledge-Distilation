@@ -26,7 +26,10 @@ class TeacherModel(nn.Module):
         else:
             raise ValueError("Invalid model name")
         
-        self.model.classifier[-1] = nn.Linear(self.model.classifier[-1].in_features, num_classes)
+        if model.startswith("resnet"):
+            self.model.fc = nn.Linear(self.fc.in_features, num_classes)
+        else:
+            self.model.classifier[-1] = nn.Linear(self.model.classifier[-1].in_features, num_classes)
 
     def forward(self, x):
         return self.model(x)
