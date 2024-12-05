@@ -6,6 +6,25 @@ from models import *
 import argparse
 from utils import *
 import os
+import warnings 
+import matplotlib.pyplot as plt
+
+warnings.filterwarnings("ignore")
+
+def visualisation_1(train_acc, test_acc, losses, title):
+    plt.style.use("ggplot")
+    plt.figure(figsize=(8,6))
+    plt.title(f"{title} - Accuracy")
+    plt.plot(train_acc, color='red', marker='.', linestyle="--", label='Train Accuracy')
+    plt.plot(test_acc, color='blue', marker='.', linestyle="--", label='Test Accuracy')
+    plt.legend()
+    plt.show()
+
+    plt.figure(figsize=(8,6))
+    plt.title(f"{title} - Loss")
+    plt.plot(losses, color='green', marker='.', linestyle="--")
+    plt.show()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a student model using knowledge distillation.")
@@ -46,6 +65,7 @@ if __name__ == "__main__":
     
     teachermodel = TeacherModel(args.teachermodel, num_classes)
     studentmodel = StudentModel(args.studentmodel, num_classes)
+
     print("============================================")
     print(f"Using device: {device}")
     print(f"Teacher Model: {args.teachermodel} with parameters {count_parameters(teachermodel)}")
@@ -67,12 +87,16 @@ if __name__ == "__main__":
     
     print("Finetuning teacher model...")
     teacher = Finetune(teachermodel, train_loader, test_loader, teacheroptimizer, criterion, device, args.teacherepochs ,args.teacher_dir)
-    teacher.train("logs", "models")
+    teacher_trainacc, teacher_testacc, teacher_losses = teacher.train("logs", "models")
+    visualisation_1(teacher_trainacc, teacher_testacc, teacher_losses, "Teacher Model")
+
     print("Finetuning Student Model")
     student = Finetune(studentmodel, train_loader, test_loader, studentoptimizer, criterion, device, args.studentepochs, args.student_dir)
-    student.train("logs", "models")
+    student_trainacc, student_testacc, student_losses = student.train("logs", "models")
+    visualisation_1(student_trainacc, student_testacc, student_losses, "Student Model")
 
     # distillation stage
     print("Distilling knowledge...")
     kd_model = KnowledgeDistillation(teachermodel, studentmodel, train_loader, test_loader, distillationoptimizer, device,args)
-    kd_model.train("logs", "models")
+    distill_trainacc, distill_testacc, distill_losses = kd_model.train("logs", "models")
+    visualisation_1(distill_trainacc, distill_testacc, distill_losses, "Distillation Model")

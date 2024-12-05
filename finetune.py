@@ -83,6 +83,9 @@ class Finetune:
             epochs (int): Number of training epochs.
             output_dir (str): Directory for saving the model and logs.
         """
+        test_accuracies = []
+        train_accuracies = []
+        losses = []
         log_path = os.path.join(log_path, f"{self.output_dir}.csv")
         model_path = os.path.join(model_path, f"{self.output_dir}.pth")
 
@@ -98,6 +101,11 @@ class Finetune:
                       f"Train Accuracy: {train_accuracy:.2f}%, Test Accuracy: {test_accuracy:.2f}%")
 
                 writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy])
+                test_accuracies.append(test_accuracy)
+                train_accuracies.append(train_accuracies)
+                losses.append(train_loss)
 
         torch.save(self.model.state_dict(), model_path)
         print(f"Model saved to {model_path}.")
+
+        return train_accuracies, test_accuracies, losses

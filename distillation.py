@@ -99,6 +99,9 @@ class KnowledgeDistillation:
         self.teacher.eval()
         self.student.train()
 
+        train_accuracies = []
+        losses = []
+        test_accuracies = []
         with open(log_path, 'w') as f:
             writer = csv.writer(f)
             writer.writerow(["epochs", "train_loss", "train_acc", "test_acc"])
@@ -111,6 +114,11 @@ class KnowledgeDistillation:
                       f"Train Accuracy: {train_accuracy:.2f}%, Test Accuracy: {test_accuracy:.2f}%")
 
                 writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy])
+                train_accuracies.append(train_accuracy)
+                test_accuracies.append(test_accuracy)
+                losses.append(train_loss)
 
         torch.save(self.student.state_dict(), model_path)
         print(f"Model saved to {model_path}.")
+
+        return train_accuracies, test_accuracies, losses
