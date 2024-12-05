@@ -117,7 +117,7 @@ class KnowledgeDistillation:
         avg_grad_similarities = []
         with open(log_path, 'w') as f:
             writer = csv.writer(f)
-            writer.writerow(["epochs", "train_loss", "train_acc", "test_acc"])
+            writer.writerow(["epochs", "train_loss", "train_acc", "test_acc", "avg_grad_similarity"])
 
             for epoch in tqdm(range(self.epochs), desc="KD Epochs"):
                 train_loss, train_accuracy, avg_grad_sim = self.train_kd_step()
@@ -126,7 +126,7 @@ class KnowledgeDistillation:
                 print(f"Epoch {epoch+1}/{self.epochs}, Loss: {train_loss:.4f}, "
                       f"Train Accuracy: {train_accuracy:.2f}%, Test Accuracy: {test_accuracy:.2f}%")
 
-                writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy])
+                writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy, avg_grad_sim])
                 train_accuracies.append(train_accuracy)
                 test_accuracies.append(test_accuracy)
                 losses.append(train_loss)
