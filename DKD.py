@@ -67,8 +67,8 @@ class DKD(nn.Module):
             logits_teacher = self.teacher(image)
 
         loss_ce = self.ce_loss_weight * F.cross_entropy(logits_student, target)
-        dkd_loss, tckd_loss, nckd_loss = dkd_loss(logits_student, logits_teacher, target, self.alpha, self.beta, self.temperature)
-        loss_dkd = min(self.epochs / self.warmup, 1.0) * dkd_loss
+        decoupled_loss, tckd_loss, nckd_loss = dkd_loss(logits_student, logits_teacher, target, self.alpha, self.beta, self.temperature)
+        loss_dkd = min(self.epochs / self.warmup, 1.0) * decoupled_loss
         losses_dict = {
             "loss_ce": loss_ce,
             "loss_kd": loss_dkd,

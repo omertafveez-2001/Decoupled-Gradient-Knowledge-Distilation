@@ -11,25 +11,28 @@ import matplotlib.pyplot as plt
 
 warnings.filterwarnings("ignore")
 
-def visualisation_1(train_acc, test_acc, losses, title):
+def visualisation_1(train_acc, test_acc, losses, title, **kwargs):
     plt.style.use("ggplot")
     plt.figure(figsize=(8,6))
     plt.title(f"{title} - Accuracy")
     plt.plot(train_acc, color='red', marker='.', linestyle="--", label='Train Accuracy')
     plt.plot(test_acc, color='blue', marker='.', linestyle="--", label='Test Accuracy')
     plt.legend()
-    plt.show()
+    plt.savefig(f"{title}_accuracy.png")
+
+    grad_similarities = kwargs.get("grad_similarities", None)
 
     plt.figure(figsize=(8,6))
     plt.title(f"{title} - Loss")
     plt.plot(losses, color='green', marker='.', linestyle="--")
-    plt.show()
+    plt.savefig(f"{title}_loss.png")
 
     if title.startswith("Distillation"):
         plt.figure(figsize=(8,6))
         plt.title(f"{title} - Gradient Similarity")
         plt.plot(grad_similarities, color='purple', marker='.', linestyle="--")
         plt.show()
+        plt.savefig(f"{title}_grad_similarity.png")
 
 
 if __name__ == "__main__":
@@ -106,4 +109,4 @@ if __name__ == "__main__":
 
     visualisation_1(teacher_trainacc, teacher_testacc, teacher_losses, "Teacher Model")
     visualisation_1(student_trainacc, student_testacc, student_losses, "Student Model")
-    visualisation_1(distill_trainacc, distill_testacc, distill_losses, "Distillation Model")
+    visualisation_1(distill_trainacc, distill_testacc, distill_losses,grad_similarities, "Distillation Model")
