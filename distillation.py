@@ -4,6 +4,7 @@ import csv
 from tqdm import tqdm
 from DKD import DKD
 import os
+import torch.nn.functional as F
 
 class KnowledgeDistillation:
     def __init__(self, teacher, student, train_loader, test_loader, optimizer, device, cfg):
@@ -43,6 +44,7 @@ class KnowledgeDistillation:
         running_loss = 0.0
         correct_predictions = 0.0
         total_predictions = 0.0 
+        grad_similarities = []
         
         for inputs, labels in self.train_loader:
             inputs, labels = inputs.to(self.device), labels.to(self.device)
@@ -50,6 +52,15 @@ class KnowledgeDistillation:
 
             logits_student, losses = self.DKD.forward_train(inputs, labels)
             loss = losses["loss_kd"] # we only use Decoupled Loss over here.
+
+            # compute gradients
+            tckd_grad = torch.autograd.grad(losses["loss_tckd"], logits_student, retain_graph=True)[0]
+            nckd_grad = torch.autograd.grad(losses["loss_nckd"], logits_student)[0]
+
+            # compute similarities
+            similarity = F.cosine_similarity(tckd_grad.view(tckd_grad.size(0), -1), 
+                                          nckd_grad.view(nckd_grad.size(0), -1)).mean().item()
+            grad_similarities.append(similarity)
             loss.backward()
             self.optimizer.step()
 
@@ -61,8 +72,9 @@ class KnowledgeDistillation:
 
         train_accuracy = (correct_predictions / total_predictions) * 100
         running_loss = running_loss / len(self.train_loader)
+        avg_grad_similarity = sum(grad_similarities) / len(grad_similarities)
         
-        return running_loss, train_accuracy
+        return running_loss, train_accuracy, avg_grad_similarity
 
     def test(self):
         """
@@ -102,12 +114,13 @@ class KnowledgeDistillation:
         train_accuracies = []
         losses = []
         test_accuracies = []
+        avg_grad_similarities = []
         with open(log_path, 'w') as f:
             writer = csv.writer(f)
             writer.writerow(["epochs", "train_loss", "train_acc", "test_acc"])
 
             for epoch in tqdm(range(self.epochs), desc="KD Epochs"):
-                train_loss, train_accuracy = self.train_kd_step()
+                train_loss, train_accuracy, avg_grad_sim = self.train_kd_step()
                 test_accuracy = self.test()
                 
                 print(f"Epoch {epoch+1}/{self.epochs}, Loss: {train_loss:.4f}, "
@@ -117,8 +130,9 @@ class KnowledgeDistillation:
                 train_accuracies.append(train_accuracy)
                 test_accuracies.append(test_accuracy)
                 losses.append(train_loss)
+                avg_grad_similarities.append(avg_grad_sim)
 
         torch.save(self.student.state_dict(), model_path)
         print(f"Model saved to {model_path}.")
 
-        return train_accuracies, test_accuracies, losses
+        return train_accuracies, test_accuracies, losses, avg_grad_similarities

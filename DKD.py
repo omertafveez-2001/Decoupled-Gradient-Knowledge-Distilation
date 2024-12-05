@@ -29,7 +29,7 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, temperature):
         / target.shape[0]
     )
 
-    return alpha*tckd_loss + beta * nckd_loss
+    return alpha*tckd_loss + beta * nckd_loss, tckd_loss, nckd_loss
 
 def _get_gt_mask(logits, target):
     target = target.reshape(-1)
@@ -67,17 +67,13 @@ class DKD(nn.Module):
             logits_teacher, _ = self.teacher(image)
 
         loss_ce = self.ce_loss_weight * F.cross_entropy(logits_student, target)
-        loss_dkd = min(self.epochs / self.warmup, 1.0) * dkd_loss(
-            logits_student,
-            logits_teacher,
-            target,
-            self.alpha,
-            self.beta,
-            self.temperature,
-        )
+        dkd_loss, tckd_loss, nckd_loss = dkd_loss(logits_student, logits_teacher, target, self.alpha, self.beta, self.temperature)
+        loss_dkd = min(self.epochs / self.warmup, 1.0) * dkd_loss
         losses_dict = {
             "loss_ce": loss_ce,
             "loss_kd": loss_dkd,
+            "loss_tckd": tckd_loss,
+            "loss_nckd": nckd_loss,
         }
         return logits_student, losses_dict
 

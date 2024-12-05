@@ -25,6 +25,12 @@ def visualisation_1(train_acc, test_acc, losses, title):
     plt.plot(losses, color='green', marker='.', linestyle="--")
     plt.show()
 
+    if title.startswith("Distillation"):
+        plt.figure(figsize=(8,6))
+        plt.title(f"{title} - Gradient Similarity")
+        plt.plot(grad_similarities, color='purple', marker='.', linestyle="--")
+        plt.show()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a student model using knowledge distillation.")
@@ -88,15 +94,16 @@ if __name__ == "__main__":
     print("Finetuning teacher model...")
     teacher = Finetune(teachermodel, train_loader, test_loader, teacheroptimizer, criterion, device, args.teacherepochs ,args.teacher_dir)
     teacher_trainacc, teacher_testacc, teacher_losses = teacher.train("logs", "models")
-    visualisation_1(teacher_trainacc, teacher_testacc, teacher_losses, "Teacher Model")
 
     print("Finetuning Student Model")
     student = Finetune(studentmodel, train_loader, test_loader, studentoptimizer, criterion, device, args.studentepochs, args.student_dir)
     student_trainacc, student_testacc, student_losses = student.train("logs", "models")
-    visualisation_1(student_trainacc, student_testacc, student_losses, "Student Model")
 
     # distillation stage
     print("Distilling knowledge...")
     kd_model = KnowledgeDistillation(teachermodel, studentmodel, train_loader, test_loader, distillationoptimizer, device,args)
-    distill_trainacc, distill_testacc, distill_losses = kd_model.train("logs", "models")
+    distill_trainacc, distill_testacc, distill_losses, grad_similarities = kd_model.train("logs", "models")
+
+    visualisation_1(teacher_trainacc, teacher_testacc, teacher_losses, "Teacher Model")
+    visualisation_1(student_trainacc, student_testacc, student_losses, "Student Model")
     visualisation_1(distill_trainacc, distill_testacc, distill_losses, "Distillation Model")
