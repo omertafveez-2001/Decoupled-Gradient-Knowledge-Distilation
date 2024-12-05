@@ -55,7 +55,7 @@ class KnowledgeDistillation:
 
             # compute gradients
             tckd_grad = torch.autograd.grad(losses["loss_tckd"], logits_student, retain_graph=True)[0]
-            nckd_grad = torch.autograd.grad(losses["loss_nckd"], logits_student)[0]
+            nckd_grad = torch.autograd.grad(losses["loss_nckd"], logits_student)[0] 
 
             # compute similarities
             similarity = F.cosine_similarity(tckd_grad.view(tckd_grad.size(0), -1), 
