@@ -29,8 +29,9 @@ if __name__ == "__main__":
     parser.add_argument("--student_dir", type=str, default="student", help="Directory for saving student model")
     parser.add_argument("--teacher_dir", type=str, default="teacher", help="Directory for saving teacher model")
     parser.add_argument("--distill_dir", type=str, default="output", help="Directory for distillation saving logs and models")
-    parser.add_argument("--learning_rate", type=float, default=0.001, help="Learning rate for training")
+    parser.add_argument("--finetunelr", type=float, default=0.001, help="Learning rate for training")
     parser.add_argument("--warmup", type=float, default=0.1, help="Warmup rate for training")
+    parser.add_argument("--distilllr", type=float, default=0.1, help="Learning rate for distillation")
 
     args = parser.parse_args()
     set_seed()
@@ -65,9 +66,8 @@ if __name__ == "__main__":
     print("============================================")
 
 
-    teacheroptimizer = torch.optim.Adam(teachermodel.parameters(), lr=args.learning_rate)
-    studentoptimizer = torch.optim.Adam(studentmodel.parameters(), lr=args.learning_rate)
-    distillationoptimizer = torch.optim.Adam(studentmodel.parameters(), lr=args.learning_rate)
+    teacheroptimizer = torch.optim.AdamW(teachermodel.parameters(), lr=args.finetunelr)
+    studentoptimizer = torch.optim.AdamW(studentmodel.parameters(), lr=args.finetunelr)
 
     # finetuning stage
     criterion = nn.CrossEntropyLoss()
@@ -80,25 +80,36 @@ if __name__ == "__main__":
     student = Finetune(studentmodel, train_loader, test_loader, studentoptimizer, criterion, device, args.studentepochs, args.student_dir)
     student_trainacc, student_testacc, student_losses = student.train("logs", "models")
 
-    # making copies of the model to make sure the original model is not affected
-    logitmatching = copy.deepcopy(studentmodel)
-    dkd = copy.deepcopy(studentmodel)
-    tckd = copy.deepcopy(studentmodel)
-    nckd = copy.deepcopy(studentmodel)
+    logitmatching = StudentModel(args.studentmodel, num_classes)
+    dkd = StudentModel(args.studentmodel, num_classes)
+    tckd = StudentModel(args.studentmodel, num_classes)
+    nckd = StudentModel(args.studentmodel, num_classes)
+
+    logitmatching.load_state_dict(torch.load(os.path.join("models", f"student.pth")))
+    dkd.load_state_dict(torch.load(os.path.join("models", f"student.pth")))
+    tckd.load_state_dict(torch.load(os.path.join("models", f"student.pth")))
+    nckd.load_state_dict(torch.load(os.path.join("models", f"student.pth")))
+
+
+    logitmatchingoptimizer = torch.optim.AdamW(logitmatching.parameters(), lr=args.distilllr)
+    dkdoptimizer = torch.optim.AdamW(dkd.parameters(), lr=args.distilllr)
+    tckdoptimizer = torch.optim.AdamW(tckd.parameters(), lr=args.distilllr)
+    nckdoptimizer = torch.optim.AdamW(nckd.parameters(), lr=args.distilllr)
+
 
     # distillation stage 
     print("Distilling knowledge using Logit Matching...")
-    logit_model = KnowledgeDistillation(teachermodel, logitmatching, train_loader, test_loader, distillationoptimizer, device,args, type="logit_matching")
+    logit_model = KnowledgeDistillation(teachermodel, logitmatching, train_loader, test_loader, logitmatchingoptimizer, device,args, type="logit_matching")
     logit_model.train("logs", "models")
 
     print("Distilling knowledge using Target Class Loss ...")
-    tckd_model = KnowledgeDistillation(teachermodel, tckd, train_loader, test_loader, distillationoptimizer, device,args, type="tckd")
+    tckd_model = KnowledgeDistillation(teachermodel, tckd, train_loader, test_loader, dkdoptimizer, device,args, type="tckd")
     tckd_model.train("logs", "models")
 
     print("Distilling knowledge using non target class loss ...")
-    nckd_model = KnowledgeDistillation(teachermodel, nckd, train_loader, test_loader, distillationoptimizer, device,args, type="nckd")
+    nckd_model = KnowledgeDistillation(teachermodel, nckd, train_loader, test_loader, tckdoptimizer, device,args, type="nckd")
     nckd_model.train("logs", "models")
 
     print("Distilling knowledge using DKD...")
-    dkd_model = KnowledgeDistillation(teachermodel, dkd, train_loader, test_loader, distillationoptimizer, device,args, type="decoupled")
+    dkd_model = KnowledgeDistillation(teachermodel, dkd, train_loader, test_loader, nckdoptimizer, device,args, type="decoupled")
     dkd_model.train("logs", "models")

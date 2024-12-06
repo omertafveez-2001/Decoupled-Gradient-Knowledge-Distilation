@@ -11,8 +11,9 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, temperature):
     pred_teacher = cat_mask(pred_teacher, gt_mask, other_mask)
     log_pred_student = torch.log(pred_student)
 
+    soft_criterion = nn.KLDivLoss(reduction="batchmean")
     tckd_loss = (
-        F.kl_div(log_pred_student, pred_student, size_average=False)
+        soft_criterion(log_pred_student, pred_teacher)
         * (temperature**2)
         / target.shape[0]
     )
@@ -22,13 +23,12 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, temperature):
     log_pred_student_part2 = F.log_softmax(
         logits_student / temperature - 1000.0 * gt_mask, dim=1
     )
-
     nckd_loss = (
-        F.kl_div(log_pred_student_part2, pred_teacher_part2, size_average=False)
-        * (temperature **2)
+        soft_criterion(log_pred_student_part2, pred_teacher_part2)
+        * (temperature**2)
         / target.shape[0]
     )
-
+    
     return alpha*tckd_loss + beta * nckd_loss, tckd_loss, nckd_loss
 
 def _get_gt_mask(logits, target):
@@ -100,7 +100,7 @@ class LogitMatching(nn.Module):
         teacher_probs = nn.functional.softmax(teacher_logits / self.temperature, dim=1)
         student_probs = nn.functional.softmax(student_logits / self.temperature, dim=1)
 
-        distillation_loss = soft_criterion(student_probs, teacher_probs)*(temperature**2)
+        distillation_loss = soft_criterion(student_probs, teacher_probs)*(self.temperature**2)
         hard_loss = hard_criterion(student_logits, target)
         loss = self.beta * distillation_loss + self.alpha * hard_loss
 
