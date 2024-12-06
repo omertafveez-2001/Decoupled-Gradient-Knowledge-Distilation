@@ -76,19 +76,19 @@ if __name__ == "__main__":
     teacher = Finetune(teachermodel, train_loader, test_loader, teacheroptimizer, criterion, device, args.teacherepochs ,args.teacher_dir)
     teacher_trainacc, teacher_testacc, teacher_losses = teacher.train("logs", "models")
 
-    print("Finetuning Student Model")
-    student = Finetune(studentmodel, train_loader, test_loader, studentoptimizer, criterion, device, args.studentepochs, args.student_dir)
-    student_trainacc, student_testacc, student_losses = student.train("logs", "models")
+    # print("Finetuning Student Model")
+    # student = Finetune(studentmodel, train_loader, test_loader, studentoptimizer, criterion, device, args.studentepochs, args.student_dir)
+    # student_trainacc, student_testacc, student_losses = student.train("logs", "models")
 
     logitmatching = StudentModel(args.studentmodel, num_classes)
     dkd = StudentModel(args.studentmodel, num_classes)
     tckd = StudentModel(args.studentmodel, num_classes)
     nckd = StudentModel(args.studentmodel, num_classes)
 
-    logitmatching.load_state_dict(torch.load(os.path.join("models", f"student.pth")))
-    dkd.load_state_dict(torch.load(os.path.join("models", f"student.pth")))
-    tckd.load_state_dict(torch.load(os.path.join("models", f"student.pth")))
-    nckd.load_state_dict(torch.load(os.path.join("models", f"student.pth")))
+    # logitmatching.load_state_dict(torch.load(os.path.join("models", f"student.pth")))
+    # dkd.load_state_dict(torch.load(os.path.join("models", f"student.pth")))
+    # tckd.load_state_dict(torch.load(os.path.join("models", f"student.pth")))
+    # nckd.load_state_dict(torch.load(os.path.join("models", f"student.pth")))
 
 
     logitmatchingoptimizer = torch.optim.AdamW(logitmatching.parameters(), lr=args.distilllr)
