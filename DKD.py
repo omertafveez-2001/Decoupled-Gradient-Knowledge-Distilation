@@ -11,7 +11,7 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, temperature):
     pred_teacher = cat_mask(pred_teacher, gt_mask, other_mask)
     log_pred_student = torch.log(pred_student)
 
-    soft_criterion = nn.KLDivLoss(reduction="batchmean")
+    soft_criterion = nn.KLDivLoss(reduction="sum") # similar to size_average=False
     tckd_loss = (
         soft_criterion(log_pred_student, pred_teacher)
         * (temperature**2)
@@ -54,7 +54,7 @@ class DKD(nn.Module):
         super(DKD, self).__init__()
         self.ce_loss_weight = cfg.ce_weight
         self.alpha = cfg.alpha
-        self.beta = cfg.beta
+        self.beta = 1-cfg.self.alpha
         self.temperature = cfg.temperature
         self.warmup = cfg.warmup
         self.student = student
@@ -66,11 +66,9 @@ class DKD(nn.Module):
         with torch.no_grad():
             logits_teacher = self.teacher(image)
 
-        loss_ce = self.ce_loss_weight * F.cross_entropy(logits_student, target)
         decoupled_loss, tckd_loss, nckd_loss = dkd_loss(logits_student, logits_teacher, target, self.alpha, self.beta, self.temperature)
         loss_dkd = min(self.epochs / self.warmup, 1.0) * decoupled_loss
         losses_dict = {
-            "loss_ce": loss_ce,
             "loss_kd": loss_dkd,
             "loss_tckd": tckd_loss,
             "loss_nckd": nckd_loss,
@@ -80,9 +78,8 @@ class DKD(nn.Module):
 class LogitMatching(nn.Module):
     def __init__(self, student, teacher, cfg):
         super(LogitMatching, self).__init__()
-        self.ce_loss_weight = cfg.ce_weight
         self.alpha = cfg.alpha
-        self.beta = cfg.beta
+        self.beta = 1-cfg.alpha
         self.temperature = cfg.temperature
         self.warmup = cfg.warmup
         self.student = student

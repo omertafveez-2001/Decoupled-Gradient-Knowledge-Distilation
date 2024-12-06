@@ -23,9 +23,7 @@ if __name__ == "__main__":
     parser.add_argument("--studentepochs", type=int, default=10, help="Number of epochs to finetune the student model")
     parser.add_argument("--distillepochs", type=int, default=10, help="Number of epochs to distill knowledge to the student model")
     parser.add_argument("--alpha", type=float, default=0.5, help="Alpha value for distillation loss")
-    parser.add_argument("--beta", type=float, default=0.5, help="Beta value for distillation loss")
     parser.add_argument("--temperature", type=float, default=5.0, help="Temperature value for distillation loss")
-    parser.add_argument("--ce_weight", type=float, default=0.5, help="Cross-entropy loss weight")
     parser.add_argument("--student_dir", type=str, default="student", help="Directory for saving student model")
     parser.add_argument("--teacher_dir", type=str, default="teacher", help="Directory for saving teacher model")
     parser.add_argument("--distill_dir", type=str, default="output", help="Directory for distillation saving logs and models")
@@ -76,19 +74,11 @@ if __name__ == "__main__":
     teacher = Finetune(teachermodel, train_loader, test_loader, teacheroptimizer, criterion, device, args.teacherepochs ,args.teacher_dir)
     teacher_trainacc, teacher_testacc, teacher_losses = teacher.train("logs", "models")
 
-    # print("Finetuning Student Model")
-    # student = Finetune(studentmodel, train_loader, test_loader, studentoptimizer, criterion, device, args.studentepochs, args.student_dir)
-    # student_trainacc, student_testacc, student_losses = student.train("logs", "models")
-
+    
     logitmatching = StudentModel(args.studentmodel, num_classes)
     dkd = StudentModel(args.studentmodel, num_classes)
     tckd = StudentModel(args.studentmodel, num_classes)
     nckd = StudentModel(args.studentmodel, num_classes)
-
-    # logitmatching.load_state_dict(torch.load(os.path.join("models", f"student.pth")))
-    # dkd.load_state_dict(torch.load(os.path.join("models", f"student.pth")))
-    # tckd.load_state_dict(torch.load(os.path.join("models", f"student.pth")))
-    # nckd.load_state_dict(torch.load(os.path.join("models", f"student.pth")))
 
 
     logitmatchingoptimizer = torch.optim.AdamW(logitmatching.parameters(), lr=args.distilllr)
