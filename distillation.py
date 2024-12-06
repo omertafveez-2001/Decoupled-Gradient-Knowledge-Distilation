@@ -7,7 +7,7 @@ import os
 import torch.nn.functional as F
 
 class KnowledgeDistillation:
-    def __init__(self, teacher, student, train_loader, test_loader, optimizer, device, cfg):
+    def __init__(self, teacher, student, train_loader, test_loader, optimizer, device, cfg, type):
         """
         Initializes the KnowledgeDistillation class.
 
@@ -30,6 +30,7 @@ class KnowledgeDistillation:
         self.DKD = DKD(student, teacher, cfg)
         self.epochs = cfg.distillepochs
         self.output_dir = cfg.distill_dir
+        self.type = type
         
         self.teacher.to(device)
         self.student.to(device)
@@ -50,17 +51,27 @@ class KnowledgeDistillation:
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             self.optimizer.zero_grad()
 
-            logits_student, losses = self.DKD.forward_train(inputs, labels)
-            loss = losses["loss_kd"] # we only use Decoupled Loss over here.
+            if self.type=="decoupled":
+                logits_student, losses = self.DKD.forward_train(inputs, labels)
+                loss = losses["loss_kd"]
 
-            # compute gradients
-            tckd_grad = torch.autograd.grad(losses["loss_tckd"], logits_student, retain_graph=True)[0]
-            nckd_grad = torch.autograd.grad(losses["loss_nckd"], logits_student, retain_graph=True)[0] 
+                tckd_grad = torch.autograd.grad(losses["loss_tckd"], logits_student, retain_graph=True)[0]
+                nckd_grad = torch.autograd.grad(losses["loss_nckd"], logits_student, retain_graph=True)[0] 
 
-            # compute similarities
-            similarity = F.cosine_similarity(tckd_grad.view(tckd_grad.size(0), -1), 
+                # compute similarities
+                similarity = F.cosine_similarity(tckd_grad.view(tckd_grad.size(0), -1), 
                                           nckd_grad.view(nckd_grad.size(0), -1)).mean().item()
-            grad_similarities.append(similarity)
+                grad_similarities.append(similarity)
+
+            elif self.type=="logit_matching":
+                logits_student, loss = self.DKD.forward_train(inputs, labels)
+            elif self.type=="nckd":
+                logits_student, losses = self.DKD.forward_train(inputs, labels)
+                loss = losses["loss_nckd"]
+            elif self.type=="tckd":
+                logits_student, losses = self.DKD.forward_train(inputs, labels)
+                loss = losses["loss_tckd"]
+
             loss.backward()
             self.optimizer.step()
 
@@ -72,9 +83,12 @@ class KnowledgeDistillation:
 
         train_accuracy = (correct_predictions / total_predictions) * 100
         running_loss = running_loss / len(self.train_loader)
-        avg_grad_similarity = sum(grad_similarities) / len(grad_similarities)
+
+        if self.type=="decoupled":
+            avg_grad_similarity = sum(grad_similarities) / len(grad_similarities)
+            return running_loss, train_accuracy, avg_grad_similarity
         
-        return running_loss, train_accuracy, avg_grad_similarity
+        return running_loss, train_accuracy
 
     def test(self):
         """
@@ -117,7 +131,11 @@ class KnowledgeDistillation:
         avg_grad_similarities = []
         with open(log_path, 'w') as f:
             writer = csv.writer(f)
-            writer.writerow(["epochs", "train_loss", "train_acc", "test_acc", "avg_grad_similarity"])
+
+            if self.type=="decoupled":
+                writer.writerow(["epochs", "train_loss", "train_acc", "test_acc", "avg_grad_similarity"])
+            else:
+                writer.writerow(["epochs", "train_loss", "train_acc", "test_acc"])
 
             for epoch in tqdm(range(self.epochs), desc="KD Epochs"):
                 train_loss, train_accuracy, avg_grad_sim = self.train_kd_step()
@@ -126,7 +144,10 @@ class KnowledgeDistillation:
                 print(f"Epoch {epoch+1}/{self.epochs}, Loss: {train_loss:.4f}, "
                       f"Train Accuracy: {train_accuracy:.2f}%, Test Accuracy: {test_accuracy:.2f}%")
 
-                writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy, avg_grad_sim])
+                if self.type=="decoupled":
+                    writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy, avg_grad_sim])
+                else:
+                    writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy])
                 train_accuracies.append(train_accuracy)
                 test_accuracies.append(test_accuracy)
                 losses.append(train_loss)
@@ -134,5 +155,3 @@ class KnowledgeDistillation:
 
         torch.save(self.student.state_dict(), model_path)
         print(f"Model saved to {model_path}.")
-
-        return train_accuracies, test_accuracies, losses, avg_grad_similarities

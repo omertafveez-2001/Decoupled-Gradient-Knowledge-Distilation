@@ -77,3 +77,32 @@ class DKD(nn.Module):
         }
         return logits_student, losses_dict
 
+class LogitMatching(nn.Module):
+    def __init__(self, student, teacher, cfg):
+        super(LogitMatching, self).__init__()
+        self.ce_loss_weight = cfg.ce_weight
+        self.alpha = cfg.alpha
+        self.beta = cfg.beta
+        self.temperature = cfg.temperature
+        self.warmup = cfg.warmup
+        self.student = student
+        self.teacher = teacher
+        self.epochs = cfg.distillepochs
+    
+    def forward_train(self, image, target, **kwargs):
+        student_logits = self.student(image)
+        with torch.no_grad():
+            teacher_logits = self.teacher(image)
+        
+        soft_criterion = nn.KLDivLoss(reduction='batchmean')
+        hard_criterion = nn.CrossEntropyLoss()
+        
+        teacher_probs = nn.functional.softmax(teacher_logits / self.temperature, dim=1)
+        student_probs = nn.functional.softmax(student_logits / self.temperature, dim=1)
+
+        distillation_loss = soft_criterion(student_probs, teacher_probs)*(temperature**2)
+        hard_loss = hard_criterion(student_logits, target)
+        loss = self.beta * distillation_loss + self.alpha * hard_loss
+
+        return student_logits, loss
+

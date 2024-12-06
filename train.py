@@ -8,31 +8,9 @@ from utils import *
 import os
 import warnings 
 import matplotlib.pyplot as plt
+import copy
 
 warnings.filterwarnings("ignore")
-
-def visualisation_1(train_acc, test_acc, losses, title, **kwargs):
-    plt.style.use("ggplot")
-    plt.figure(figsize=(8,6))
-    plt.title(f"{title} - Accuracy")
-    plt.plot(train_acc, color='red', marker='.', linestyle="--", label='Train Accuracy')
-    plt.plot(test_acc, color='blue', marker='.', linestyle="--", label='Test Accuracy')
-    plt.legend()
-    plt.savefig(f"{title}_accuracy.png")
-
-    grad_similarities = kwargs.get("grad_similarities", None)
-
-    plt.figure(figsize=(8,6))
-    plt.title(f"{title} - Loss")
-    plt.plot(losses, color='green', marker='.', linestyle="--")
-    plt.savefig(f"{title}_loss.png")
-
-    if title.startswith("Distillation"):
-        plt.figure(figsize=(8,6))
-        plt.title(f"{title} - Gradient Similarity")
-        plt.plot(grad_similarities, color='purple', marker='.', linestyle="--")
-        plt.show()
-        plt.savefig(f"{title}_grad_similarity.png")
 
 
 if __name__ == "__main__":
@@ -102,11 +80,25 @@ if __name__ == "__main__":
     student = Finetune(studentmodel, train_loader, test_loader, studentoptimizer, criterion, device, args.studentepochs, args.student_dir)
     student_trainacc, student_testacc, student_losses = student.train("logs", "models")
 
-    # distillation stage
-    print("Distilling knowledge...")
-    kd_model = KnowledgeDistillation(teachermodel, studentmodel, train_loader, test_loader, distillationoptimizer, device,args)
-    distill_trainacc, distill_testacc, distill_losses, grad_similarities = kd_model.train("logs", "models")
+    # making copies of the model to make sure the original model is not affected
+    logitmatching = copy.deepcopy(studentmodel)
+    dkd = copy.deepcopy(studentmodel)
+    tckd = copy.deepcopy(studentmodel)
+    nckd = copy.deepcopy(studentmodel)
 
-    visualisation_1(teacher_trainacc, teacher_testacc, teacher_losses, "Teacher Model")
-    visualisation_1(student_trainacc, student_testacc, student_losses, "Student Model")
-    visualisation_1(distill_trainacc, distill_testacc, distill_losses,grad_similarities, "Distillation Model")
+    # distillation stage 
+    print("Distilling knowledge using Logit Matching...")
+    logit_model = KnowledgeDistillation(teachermodel, logitmatching, train_loader, test_loader, distillationoptimizer, device,args, type="logit_matching")
+    logit_model.train("logs", "models")
+
+    print("Distilling knowledge using Target Class Loss ...")
+    tckd_model = KnowledgeDistillation(teachermodel, tckd, train_loader, test_loader, distillationoptimizer, device,args, type="tckd")
+    tckd_model.train("logs", "models")
+
+    print("Distilling knowledge using non target class loss ...")
+    nckd_model = KnowledgeDistillation(teachermodel, nckd, train_loader, test_loader, distillationoptimizer, device,args, type="nckd")
+    nckd_model.train("logs", "models")
+
+    print("Distilling knowledge using DKD...")
+    dkd_model = KnowledgeDistillation(teachermodel, dkd, train_loader, test_loader, distillationoptimizer, device,args, type="decoupled")
+    dkd_model.train("logs", "models")
