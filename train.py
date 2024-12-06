@@ -103,13 +103,13 @@ if __name__ == "__main__":
     logit_model.train("logs", "models")
 
     print("Distilling knowledge using Target Class Loss ...")
-    tckd_model = KnowledgeDistillation(teachermodel, tckd, train_loader, test_loader, dkdoptimizer, device,args, type="tckd")
+    tckd_model = KnowledgeDistillation(teachermodel, tckd, train_loader, test_loader, tckdoptimizer, device,args, type="tckd")
     tckd_model.train("logs", "models")
 
     print("Distilling knowledge using non target class loss ...")
-    nckd_model = KnowledgeDistillation(teachermodel, nckd, train_loader, test_loader, tckdoptimizer, device,args, type="nckd")
+    nckd_model = KnowledgeDistillation(teachermodel, nckd, train_loader, test_loader, nckdoptimizer, device,args, type="nckd")
     nckd_model.train("logs", "models")
 
     print("Distilling knowledge using DKD...")
-    dkd_model = KnowledgeDistillation(teachermodel, dkd, train_loader, test_loader, nckdoptimizer, device,args, type="decoupled")
+    dkd_model = KnowledgeDistillation(teachermodel, dkd, train_loader, test_loader, dkdoptimizer, device,args, type="decoupled")
     dkd_model.train("logs", "models")
