@@ -52,7 +52,6 @@ def cat_mask(t, mask1, mask2):
 class DKD(nn.Module):
     def __init__(self, student, teacher, cfg):
         super(DKD, self).__init__()
-        self.ce_loss_weight = cfg.ce_weight
         self.alpha = cfg.alpha
         self.beta = 1-cfg.self.alpha
         self.temperature = cfg.temperature
