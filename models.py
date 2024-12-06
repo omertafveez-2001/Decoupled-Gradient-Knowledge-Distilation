@@ -43,21 +43,21 @@ class StudentModel(nn.Module):
         super(StudentModel, self).__init__()
 
         if model == "resnet18":
-            self.model = resnet18(pretrained=True)
+            self.model = resnet18(pretrained=False)
         elif model == "resnet34":
-            self.model = resnet34(pretrained=True)
+            self.model = resnet34(pretrained=False)
         elif model == "resnet50":
-            self.model = resnet50(pretrained=True)
+            self.model = resnet50(pretrained=False)
         elif model == "resnet101":
-            self.model = resnet101(pretrained=True)
+            self.model = resnet101(pretrained=False)
         elif model == "vgg11":
-            self.model = vgg11(pretrained=True)
+            self.model = vgg11(pretrained=False)
         elif model == "vgg13":
-            self.model = vgg13(pretrained=True)
+            self.model = vgg13(pretrained=False)
         elif model == "vgg16":
-            self.model = vgg16(pretrained=True)
+            self.model = vgg16(pretrained=False)
         elif model == "vgg19":
-            self.model = vgg19(pretrained=True)
+            self.model = vgg19(pretrained=False)
         else:
             raise ValueError("Invalid model name")
         
