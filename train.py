@@ -55,7 +55,7 @@ if __name__ == "__main__":
     print(f"Using device: {device}")
     print(f"Teacher Model: {args.teachermodel} with parameters {count_parameters(teachermodel)}")
     print(f"Student Model {args.studentmodel} with parameters {count_parameters(studentmodel)}")
-    print(f"Teacher Finetuning Epochs {args.teacherepochs}")
+    print(f"Finetuning Epochs {args.finetuneepochs}")
     print(f"Distillation Epochs {args.distillepochs}")
     print(f"Dataset: {args.dataset}")
     print(f"Batch Size: {args.batchsize}")
