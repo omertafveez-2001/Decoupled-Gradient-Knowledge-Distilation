@@ -119,8 +119,8 @@ class KnowledgeDistillation:
             epochs (int): Number of epochs for training.
             output_dir (str): Directory for saving the student model and logs.
         """
-        log_path = os.path.join(log_path, f"{self.output_dir}.csv")
-        model_path = os.path.join(model_path, f"{self.output_dir}.pth")
+        log_path = os.path.join(log_path, f"{self.output_dir}_{self.type}.csv")
+        model_path = os.path.join(model_path, f"{self.output_dir}_{self.type}.pth")
 
         self.teacher.eval()
         self.student.train()
