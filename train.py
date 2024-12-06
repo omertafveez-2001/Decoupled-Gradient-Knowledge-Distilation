@@ -19,7 +19,7 @@ if __name__ == "__main__":
     parser.add_argument("--studentmodel", type=str, default="resnet18", help="Student model architecture")
     parser.add_argument("--dataset", type=str, default="CIFAR-10", help="Dataset to use")
     parser.add_argument("--batchsize", type=int, default=32, help="Batch size for training")
-    parser.add_argument("--teacherepochs", type=int, default=10, help="Number of epochs to finetune the teacher model")
+    parser.add_argument("--finetuneepochs", type=int, default=10, help="Number of epochs to finetune the model")
     parser.add_argument("--distillepochs", type=int, default=10, help="Number of epochs to distill knowledge to the student model")
     parser.add_argument("--alpha", type=float, default=0.5, help="Alpha value for distillation loss")
     parser.add_argument("--temperature", type=float, default=5.0, help="Temperature value for distillation loss")
@@ -69,8 +69,12 @@ if __name__ == "__main__":
     criterion = nn.CrossEntropyLoss()
     
     print("Finetuning teacher model...")
-    teacher = Finetune(teachermodel, train_loader, test_loader, teacheroptimizer, criterion, device, args.teacherepochs ,args.teacher_dir)
+    teacher = Finetune(teachermodel, train_loader, test_loader, teacheroptimizer, criterion, device, args.finetuneepochs ,args.teacher_dir)
     teacher_trainacc, teacher_testacc, teacher_losses = teacher.train("logs", "models")
+
+    print("Finetuning student model...")
+    student = Finetune(studentmodel, train_loader, test_loader, studentoptimizer, criterion, device, args.finetuneepochs, args.student_dir)
+    student_trainacc, student_testacc, student_losses = student.train("logs", "models")
 
     
     logitmatching = StudentModel(args.studentmodel, num_classes)
