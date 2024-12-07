@@ -160,7 +160,7 @@ class KnowledgeDistillation:
             writer = csv.writer(f)
 
             if self.type=="decoupled":
-                writer.writerow(["epochs", "train_loss", "train_acc", "test_acc", "avg_grad_similarity", "tckd_grad_norm", "nckd_grad_norm", "tckd_grad_mean", "nckd_grad_mean"])
+                writer.writerow(["epochs", "train_loss", "train_acc", "test_acc", "avg_grad_similarity", "tckd_grad_norm", "nckd_grad_norm", "tckd_grad_mean", "nckd_grad_mean", "target_norm", "nontarget_norm"])
             else:
                 writer.writerow(["epochs", "train_loss", "train_acc", "test_acc"])
 
