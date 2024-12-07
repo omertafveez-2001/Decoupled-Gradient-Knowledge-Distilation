@@ -1,3 +1,4 @@
+
 from dataset import *
 from distillation import *
 from DKD import *
@@ -29,6 +30,7 @@ if __name__ == "__main__":
     parser.add_argument("--finetunelr", type=float, default=0.001, help="Learning rate for training")
     parser.add_argument("--warmup", type=float, default=0.1, help="Warmup rate for training")
     parser.add_argument("--distilllr", type=float, default=0.1, help="Learning rate for distillation")
+    parser.add_argument("--augment", type=bool, default=False, help="Augment data")
 
     args = parser.parse_args()
     set_seed()
@@ -38,8 +40,33 @@ if __name__ == "__main__":
     
     os.makedirs(f'models', exist_ok=True)
     os.makedirs(f'logs', exist_ok=True)
+
+    if args.augment:
+        IMAGE_SIZE = 224
+        TRAIN_TFMS = transforms.Compose([
+                    transforms.Resize((224,224)),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)),
+        ])
+        TEST_TFMS = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)),
+        ])
+    else:
+        IMAGE_SIZE = 224
+        TRAIN_TFMS = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+        ])
+        TEST_TFMS = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+        ])
+
     
-    train_ds, test_ds = get_dataset(args.dataset)(root=f'./data/{args.dataset}')
+    train_ds, test_ds = get_dataset(args.dataset, args.augment, root=f'./data/{args.dataset}')
     train_loader = get_dataloader(train_ds, batch_size, is_train=True, num_workers=num_workers)
     test_loader = get_dataloader(test_ds, batch_size, is_train=False, num_workers=num_workers)
 
@@ -59,6 +86,10 @@ if __name__ == "__main__":
     print(f"Distillation Epochs {args.distillepochs}")
     print(f"Dataset: {args.dataset}")
     print(f"Batch Size: {args.batchsize}")
+    if args.augment:
+        print("Running with Augmented Data")
+    else:
+        print("Running without Augmented Data")
     print("============================================")
 
 
