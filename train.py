@@ -1,9 +1,8 @@
-
 from dataset import *
-from distillation import *
-from DKD import *
+from distillation_process import *
+from decoupled_distillation import *
 from finetune import *
-from models import *
+from distillation_process import *
 import argparse
 from utils import *
 import os
