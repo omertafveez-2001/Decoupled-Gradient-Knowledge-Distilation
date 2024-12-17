@@ -1,8 +1,7 @@
 from dataset import *
-from distillation_process import *
-from decoupled_distillation import *
+from distillation.distillation_process import *
+from distillation.decoupled_distillation import *
 from finetune import *
-from distillation_process import *
 import argparse
 from utils import *
 import os

@@ -2,11 +2,11 @@ import torch
 import torch.nn as nn
 import csv
 from tqdm import tqdm
-from decoupled_distillation import *
+from distillation.decoupled_distillation import *
 import os
 import torch.nn.functional as F
 from torchvision.models import resnet18, resnet34, resnet50, resnet101, vgg11, vgg13, vgg16, vgg19
-from resnet import ResNet
+from models.resnet import ResNet
 
 
 model_parameters={}
