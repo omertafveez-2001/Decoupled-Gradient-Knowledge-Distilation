@@ -139,7 +139,7 @@ class ResNet(nn.Module):
         self.block4 = self._make_blocks( self.channels_list[2]*self.expansion , self.channels_list[3], self.repeatition_list[3], self.expansion, self.is_Bottleneck, stride=2 )
 
         self.average_pool = nn.AdaptiveAvgPool2d(1)
-        self.fc1 = nn.Linear( self.channels_list[3]*self.expansion , num_classes)
+        self.fc = nn.Linear( self.channels_list[3]*self.expansion , num_classes)
 
 
 
@@ -158,7 +158,7 @@ class ResNet(nn.Module):
         x = self.average_pool(x)
 
         x = torch.flatten(x, start_dim=1)
-        x = self.fc1(x)
+        x = self.fc(x)
         
         return x
 
