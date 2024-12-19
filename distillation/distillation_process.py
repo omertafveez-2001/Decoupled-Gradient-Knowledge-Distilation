@@ -137,7 +137,7 @@ class KnowledgeDistillation:
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             self.optimizer.zero_grad()
 
-            if self.type=="decoupled":
+            if self.type.startswith("decoupled"):
                 logits_student, losses = self.DKD.forward_train(inputs, labels)
                 loss = losses["loss_kd"]
 
@@ -184,7 +184,7 @@ class KnowledgeDistillation:
         train_accuracy = (correct_predictions / total_predictions) * 100
         running_loss = running_loss / len(self.train_loader)
 
-        if self.type=="decoupled":
+        if self.type.startswith("decoupled"):
             avg_grad_similarity = sum(grad_similarities) / len(grad_similarities)
             tckd_grad_norms = sum(tckd_grad_norms) / len(tckd_grad_norms)
             nckd_grad_norms = sum(nckd_grad_norms)/ len(nckd_grad_norms)
@@ -242,7 +242,7 @@ class KnowledgeDistillation:
                 writer.writerow(["epochs", "train_loss", "train_acc", "test_acc"])
 
             for epoch in tqdm(range(self.epochs), desc="KD Epochs"):
-                if self.type == "decoupled":
+                if self.type.startswith("decoupled"):
                     train_loss, train_accuracy, avg_grad_sim, tckd_norm, nckd_norm, tckd_grad_avgs, nckd_grad_avgs, targetnorms, nontargetnorms = self.train_kd_step()
                 else:
                     train_loss, train_accuracy = self.train_kd_step()
@@ -251,7 +251,7 @@ class KnowledgeDistillation:
                 print(f"Epoch {epoch+1}/{self.epochs}, Loss: {train_loss:.4f}, "
                       f"Train Accuracy: {train_accuracy:.2f}%, Test Accuracy: {test_accuracy:.2f}%")
 
-                if self.type=="decoupled":
+                if self.type.startswith("decoupled"):
                     writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy, avg_grad_sim, tckd_norm, nckd_norm, tckd_grad_avgs, nckd_grad_avgs, targetnorms, nontargetnorms])
                 else:
                     writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy])
