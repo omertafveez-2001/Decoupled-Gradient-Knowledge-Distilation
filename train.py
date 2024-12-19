@@ -6,8 +6,6 @@ import argparse
 from utils import *
 import os
 import warnings 
-import matplotlib.pyplot as plt
-import copy
 
 warnings.filterwarnings("ignore")
 
@@ -26,9 +24,10 @@ if __name__ == "__main__":
     parser.add_argument("--teacher_dir", type=str, default="teacher", help="Directory for saving teacher model")
     parser.add_argument("--distill_dir", type=str, default="output", help="Directory for distillation saving logs and models")
     parser.add_argument("--finetunelr", type=float, default=0.001, help="Learning rate for training")
-    parser.add_argument("--warmup", type=float, default=0.1, help="Warmup rate for training")
     parser.add_argument("--distilllr", type=float, default=0.1, help="Learning rate for distillation")
     parser.add_argument("--augment", type=bool, default=False, help="Augment data")
+    parser.add_argument("--teachermodel_path", type=str, default=None, help="Path to the finetuned model")
+    parser.add_argument("--studentmodel_path", type=str, default=None, help="Path to the finetuned student")
 
     args = parser.parse_args()
     set_seed()
@@ -94,43 +93,75 @@ if __name__ == "__main__":
     teacheroptimizer = torch.optim.AdamW(teachermodel.parameters(), lr=args.finetunelr)
     studentoptimizer = torch.optim.AdamW(studentmodel.parameters(), lr=args.finetunelr)
 
-    # finetuning stage
     criterion = nn.CrossEntropyLoss()
-    
-    print("Finetuning teacher model...")
-    teacher = Finetune(teachermodel, train_loader, test_loader, teacheroptimizer, criterion, device, args.finetuneepochs ,args.teacher_dir)
-    teacher_trainacc, teacher_testacc, teacher_losses = teacher.train("logs", "models")
 
-    print("Finetuning student model...")
-    student = Finetune(studentmodel, train_loader, test_loader, studentoptimizer, criterion, device, args.finetuneepochs, args.student_dir)
-    student_trainacc, student_testacc, student_losses = student.train("logs", "models")
+    if args.teachermodel_path:
+        print("Loading in the teacher model path...")
+        teachermodel.load_state_dict(torch.load(args.teachermodel_path))
+        print("Teacher Model Loaded...")
+    else:
+        print("Finetuning teacher model...")
+        teacher = Finetune(teachermodel, train_loader, test_loader, teacheroptimizer, criterion, device, args.finetuneepochs ,args.teacher_dir)
+        teacher_trainacc, teacher_testacc, teacher_losses = teacher.train("logs", "models")
+
+    if args.studentmodel_path:
+        print("Loading in the student model path...")
+        studentmodel.load_state_dict(torch.load(args.studentmodel_path))
+        print("Student Model Loaded...")
+    else:
+        print("Finetuning student model...")
+        student = Finetune(studentmodel, train_loader, test_loader, studentoptimizer, criterion, device, args.distillepochs, args.student_dir)
+        student_trainacc, student_testacc, student_losses = student.train("logs", "models")
 
     
     logitmatching = StudentModel(args.studentmodel, num_classes)
-    dkd = StudentModel(args.studentmodel, num_classes)
-    tckd = StudentModel(args.studentmodel, num_classes)
-    nckd = StudentModel(args.studentmodel, num_classes)
+    decoupledkd = StudentModel(args.studentmodel, num_classes)
+    decoupled_sim = StudentModel(args.studentmodel, num_classes) # only inducing similarity
+    decoupled_orth = StudentModel(args.studentmodel, num_classes, orthogonal_projection=True)
+    decoupled_orth_sim = StudentModel(args.studentmodel, num_classes, orthogonal_projection=True)
+    decoupled_orth_sim_2 = StudentModel(args.studentmodel, num_classes, orthogonal_projection=True)
+    decoupled_sim2 = StudentModel(args.studentmodel, num_classes) # only removing similarity
 
 
     logitmatchingoptimizer = torch.optim.AdamW(logitmatching.parameters(), lr=args.distilllr)
-    dkdoptimizer = torch.optim.AdamW(dkd.parameters(), lr=args.distilllr)
-    tckdoptimizer = torch.optim.AdamW(tckd.parameters(), lr=args.distilllr)
-    nckdoptimizer = torch.optim.AdamW(nckd.parameters(), lr=args.distilllr)
+    decoupledkdoptimizer = torch.optim.AdamW(decoupledkd.parameters(), lr=args.distilllr)
+    decoupled_orth_optimizer = torch.optim.AdamW(decoupled_orth.parameters(), lr=args.distilllr)
+    decoupled_orth_sim_optimizer = torch.optim.AdamW(decoupled_orth_sim.parameters(), lr=args.distilllr)
+    decoupled_orth_sim_2_optimizer = torch.optim.AdamW(decoupled_orth_sim_2.parameters(), lr=args.distilllr)
+    decoupled_sim_optimizer = torch.optim.AdamW(decoupled_sim.parameters(), lr=args.distilllr)
+    decoupled_sim2_optimizer = torch.optim.AdamW(decoupled_sim2.parameters(), lr=args.distilllr)
 
-
-    # distillation stage 
+    # Logit Matching
     print("Distilling knowledge using Logit Matching...")
     logit_model = KnowledgeDistillation(teachermodel, logitmatching, train_loader, test_loader, logitmatchingoptimizer, device,args, type="logit_matching")
     logit_model.train("logs", "models")
 
-    print("Distilling knowledge using Target Class Loss ...")
-    tckd_model = KnowledgeDistillation(teachermodel, tckd, train_loader, test_loader, tckdoptimizer, device,args, type="tckd")
-    tckd_model.train("logs", "models")
-
-    print("Distilling knowledge using non target class loss ...")
-    nckd_model = KnowledgeDistillation(teachermodel, nckd, train_loader, test_loader, nckdoptimizer, device,args, type="nckd")
-    nckd_model.train("logs", "models")
-
+    # Decoupled Knowledge Distillation
     print("Distilling knowledge using DKD...")
-    dkd_model = KnowledgeDistillation(teachermodel, dkd, train_loader, test_loader, dkdoptimizer, device,args, type="decoupled")
+    dkd_model = KnowledgeDistillation(teachermodel, decoupledkd, train_loader, test_loader, decoupledkdoptimizer, device,args, type="decoupled")
+    dkd_model.train("logs", "models")
+
+    # Decoupled Knowledge Distillation with similarity
+    print("Distilling knowledge using DKD with similarity...")
+    dkd_model = KnowledgeDistillation(teachermodel, decoupled_sim, train_loader, test_loader, decoupled_sim_optimizer, device,args, type="decoupled_sim", induce_sim=True)
+    dkd_model.train("logs", "models")
+
+    # Decoupled Knowledge Distillation with reduction of similarity
+    print("Distilling Knowledge using DKD with reducing similarity...")
+    dkd_model = KnowledgeDistillation(teachermodel, decoupled_sim2, train_loader, test_loader, decoupled_sim2_optimizer, device,args, type="decoupled_red_sim",remove_sim=True)
+    dkd_model.train("logs", "models")
+
+    # Decoupled Knowledge Distillation with orthogonal projections
+    print("Distilling knowledge using DKD with orthogonal projections...")
+    dkd_model = KnowledgeDistillation(teachermodel, decoupled_orth, train_loader, test_loader, decoupled_orth_optimizer, device,args, type="decoupled_orthogonal")
+    dkd_model.train("logs", "models")
+
+    # Decoupled Knowledge Distillation with orthogonal projections and similarity
+    print("Distilling knowledge using DKD with orthogonal projections and cosine sim...")
+    dkd_model = KnowledgeDistillation(teachermodel, decoupled_orth_sim, train_loader, test_loader, decoupled_orth_sim_optimizer, device,args, type="decoupled_orth_sim", induce_sim=True)
+    dkd_model.train("logs", "models")
+
+    # Decoupled Knowledge Distillation with orthogonal projections and reduction of similarity
+    print("Distilling knowledge using DKD with orthogonal projections and reducing cosine sim...")
+    dkd_model = KnowledgeDistillation(teachermodel, decoupled_orth_sim_2, train_loader, test_loader, decoupled_orth_sim_2_optimizer, device,args, type="decoupled_orth_red_sim", remove_sim=True)
     dkd_model.train("logs", "models")

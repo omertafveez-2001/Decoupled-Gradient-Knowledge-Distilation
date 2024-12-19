@@ -1,6 +1,23 @@
 import torch
 import torch.nn as nn
 
+class OrthogonalLinear(nn.Module):
+    def __init__(self, in_dim, out_dim, bias=True):
+        super().__init__()
+        self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        self.projector = torch.nn.utils.parametrizations.orthogonal(nn.Linear(in_dim, out_dim, bias=False)).to(self.device)
+        self.weight = nn.Parameter(torch.ones(out_dim, device=self.device))
+        if bias:
+            self.bias = nn.Parameter(torch.zeros(out_dim, device=self.device))
+        else:
+            self.bias = None
+
+    def forward(self, x):
+        x = self.projector(x)
+        x = self.weight * x
+        if self.bias is not None:
+            x = x + self.bias
+        return x
 
 class Bottleneck(nn.Module):
 
@@ -93,6 +110,7 @@ class Bottleneck(nn.Module):
             x = self.batchnorm2(self.conv2_3x3(x))
 
 
+
         # identity or projected mapping
         if self.identity:
             x += in_x
@@ -105,7 +123,7 @@ class Bottleneck(nn.Module):
         return x
 
 class ResNet(nn.Module):
-    def __init__(self, resnet_variant,in_channels,num_classes):
+    def __init__(self, resnet_variant,in_channels,num_classes, orthogonal_proj):
         """
         Creates the ResNet architecture based on the provided variant. 18/34/50/101 etc.
         Based on the input parameters, define the channels list, repeatition list along with expansion factor(4) and stride(3/1)
@@ -126,6 +144,10 @@ class ResNet(nn.Module):
         self.repeatition_list = resnet_variant[1]
         self.expansion = resnet_variant[2]
         self.is_Bottleneck = resnet_variant[3]
+        self.orthogonal_proj = orthogonal_proj # orthogonal projection for the first conv layer
+
+        if self.orthogonal_proj:
+            self.orthogonal_proj4 = OrthogonalLinear(self.channels_list[3] * self.expansion, self.channels_list[3] * self.expansion)
 
         self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=64, kernel_size=7, stride=2, padding=3, bias=False )
         self.batchnorm1 = nn.BatchNorm2d(64)
@@ -141,8 +163,6 @@ class ResNet(nn.Module):
         self.average_pool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Linear( self.channels_list[3]*self.expansion , num_classes)
 
-
-
     def forward(self,x):
         x = self.relu(self.batchnorm1(self.conv1(x)))
         x = self.maxpool(x)
@@ -154,7 +174,14 @@ class ResNet(nn.Module):
         x = self.block3(x)
         
         x = self.block4(x)
-        
+
+        if self.orthogonal_proj:
+            b,c,h,w = x.shape
+            x = x.permute(0, 2, 3, 1).contiguous().view(b*h*w, c)
+            x = self.orthogonal_proj4(x)
+            bhw, c = x.shape
+            x = x.view(b, c, int((bhw // b) ** 0.5), int((bhw // b) ** 0.5))
+
         x = self.average_pool(x)
 
         x = torch.flatten(x, start_dim=1)

@@ -51,17 +51,19 @@ class TeacherModel(nn.Module):
         return self.model(x)
 
 class StudentModel(nn.Module):
-    def __init__(self, model, num_classes):
+    def __init__(self, model, num_classes, orthogonal_projection=False):
         super(StudentModel, self).__init__()
 
+        self.orthogonal_projection = orthogonal_projection
+
         if model == "resnet18":
-            self.model = ResNet(model_parameters[model], 3, num_classes)
+            self.model = ResNet(model_parameters[model], 3, num_classes, self.orthogonal_projection)
         elif model == "resnet34":
-            self.model = ResNet(model_parameters[model], 3, num_classes)
+            self.model = ResNet(model_parameters[model], 3, num_classes, self.orthogonal_projection)
         elif model == "resnet50":
-            self.model = ResNet(model_parameters[model], 3, num_classes)
+            self.model = ResNet(model_parameters[model], 3, num_classes, self.orthogonal_projection)
         elif model == "resnet101":
-            self.model = ResNet(model_parameters[model], 3, num_classes)
+            self.model = ResNet(model_parameters[model], 3, num_classes, self.orthogonal_projection)
         elif model == "vgg11":
             self.model = vgg11(pretrained=False)
         elif model == "vgg13":
@@ -82,7 +84,7 @@ class StudentModel(nn.Module):
         return self.model(x)
 
 class KnowledgeDistillation:
-    def __init__(self, teacher, student, train_loader, test_loader, optimizer, device, cfg, type):
+    def __init__(self, teacher, student, train_loader, test_loader, optimizer, device, cfg, type, induce_sim=False, remove_sim=False):
         """
         Initializes the KnowledgeDistillation class.
 
@@ -109,7 +111,7 @@ class KnowledgeDistillation:
         self.teacher.to(device)
         self.student.to(device)
 
-        self.DKD = DKD(self.student, self.teacher, cfg)
+        self.DKD = DKD(self.student, self.teacher, cfg, induce_sim, remove_sim)
         self.LogitMatching = LogitMatching(self.student, self.teacher, cfg)
         
 
