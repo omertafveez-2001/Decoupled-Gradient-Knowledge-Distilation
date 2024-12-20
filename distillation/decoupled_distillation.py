@@ -98,10 +98,8 @@ class DKD(nn.Module):
             logits_teacher = self.teacher(image)
 
         decoupled_loss, tckd_loss, nckd_loss, target_norm, nontarget_norm, grad_sim = dkd_loss(logits_student, logits_teacher, target, self.alpha, self.beta, self.temperature, self.induce_sim, self.remove_sim)
-        warmup = 0.1
-        loss_dkd = min(self.epochs / warmup, 1.0) * decoupled_loss
         losses_dict = {
-            "loss_kd": loss_dkd,
+            "loss_kd": decoupled_loss,
             "loss_tckd": tckd_loss,
             "loss_nckd": nckd_loss,
             "target_norm": target_norm,

@@ -151,15 +151,9 @@ class KnowledgeDistillation:
                 tckd_grad_norm = tckd_grad.norm(2).item()
                 nckd_grad_norm = nckd_grad.norm(2).item()
 
-                # Average Mean Value
-                tckd_grad_avg = tckd_grad.abs().mean().item()
-                nckd_grad_avg = nckd_grad.abs().mean().item()
-
                 grad_similarities.append(similarity)
                 tckd_grad_norms.append(tckd_grad_norm)
                 nckd_grad_norms.append(nckd_grad_norm)
-                tckd_grad_avgs.append(tckd_grad_avg)
-                nckd_grad_avgs.append(nckd_grad_avg)
                 target_norms.append(losses["target_norm"])
                 nontarget_norms.append(losses["nontarget_norm"])
 
@@ -188,12 +182,10 @@ class KnowledgeDistillation:
             avg_grad_similarity = sum(grad_similarities) / len(grad_similarities)
             tckd_grad_norms = sum(tckd_grad_norms) / len(tckd_grad_norms)
             nckd_grad_norms = sum(nckd_grad_norms)/ len(nckd_grad_norms)
-            tckd_grad_avgs = sum(tckd_grad_avgs)/ len(tckd_grad_avgs)
-            nckd_grad_avgs = sum(nckd_grad_avgs)/ len(nckd_grad_avgs)
             target_norms = sum(target_norms)/ len(target_norms)
             nontarget_norms = sum(nontarget_norms)/ len(nontarget_norms)
             
-            return running_loss, train_accuracy, avg_grad_similarity, tckd_grad_norms, nckd_grad_norms, tckd_grad_avgs, nckd_grad_avgs, target_norms, nontarget_norms
+            return running_loss, train_accuracy, avg_grad_similarity, tckd_grad_norms, nckd_grad_norms, target_norms, nontarget_norms
         
         return running_loss, train_accuracy
 
@@ -237,13 +229,13 @@ class KnowledgeDistillation:
             writer = csv.writer(f)
 
             if self.type=="decoupled":
-                writer.writerow(["epochs", "train_loss", "train_acc", "test_acc", "avg_grad_similarity", "tckd_grad_norm", "nckd_grad_norm", "tckd_grad_mean", "nckd_grad_mean", "target_norm", "nontarget_norm"])
+                writer.writerow(["epochs", "train_loss", "train_acc", "test_acc", "avg_grad_similarity", "tckd_grad_norm", "nckd_grad_norm", "target_norm", "nontarget_norm"])
             else:
                 writer.writerow(["epochs", "train_loss", "train_acc", "test_acc"])
 
             for epoch in tqdm(range(self.epochs), desc="KD Epochs"):
                 if self.type.startswith("decoupled"):
-                    train_loss, train_accuracy, avg_grad_sim, tckd_norm, nckd_norm, tckd_grad_avgs, nckd_grad_avgs, targetnorms, nontargetnorms = self.train_kd_step()
+                    train_loss, train_accuracy, avg_grad_sim, tckd_norm, nckd_norm, targetnorms, nontargetnorms = self.train_kd_step()
                 else:
                     train_loss, train_accuracy = self.train_kd_step()
                 test_accuracy = self.test()
@@ -252,7 +244,7 @@ class KnowledgeDistillation:
                       f"Train Accuracy: {train_accuracy:.2f}%, Test Accuracy: {test_accuracy:.2f}%")
 
                 if self.type.startswith("decoupled"):
-                    writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy, avg_grad_sim, tckd_norm, nckd_norm, tckd_grad_avgs, nckd_grad_avgs, targetnorms, nontargetnorms])
+                    writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy, avg_grad_sim, tckd_norm, nckd_norm, targetnorms, nontargetnorms])
                 else:
                     writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy])
         torch.save(self.student.state_dict(), model_path)
