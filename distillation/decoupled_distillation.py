@@ -45,6 +45,9 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, temperature, i
     with torch.enable_grad():
         target_class_gradients = torch.autograd.grad(tckd_loss, logits_student, create_graph=True)[0]
         non_target_class_gradients = torch.autograd.grad(nckd_loss, logits_student, create_graph=True)[0]
+        target_class_gradients = F.normalize(target_class_gradients.view(target_class_gradients.size(0), -1), dim=1)
+        non_target_class_gradients = F.normalize(non_target_class_gradients.view(non_target_class_gradients.size(0), -1), dim=1)
+
 
     alignment_loss = F.cosine_similarity(
             target_class_gradients.view(target_class_gradients.size(0), -1),
@@ -55,7 +58,8 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, temperature, i
     if induce_sim:
         total_loss = 0.25 * tckd_loss + 0.25 * nckd_loss - 0.5 * alignment_loss
     elif remove_sim:
-        total_loss = 0.25 * tckd_loss + 0.25*nckd_loss + 0.5 * alignment_loss
+        dissimilarity_loss = 1 - alignment_loss  # Penalize alignment
+        total_loss = 0.25 * tckd_loss + 0.25 * nckd_loss + 0.5 * dissimilarity_loss
     else:
         total_loss = alpha * tckd_loss + beta * nckd_loss
     return total_loss, tckd_loss, nckd_loss, target_student_norm, non_target_student_norm, alignment_loss.item()
