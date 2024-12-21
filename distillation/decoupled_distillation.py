@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-def dkd_loss(logits_student, logits_teacher, target, alpha, beta, temperature, induce_sim=False, remove_sim=False):
+def dkd_loss(logits_student, logits_teacher, target, alpha, beta, gamma, phi, epsilon, temperature, grad_logit_sim=False, grad_sim=False):
     # target class logits norms
     target_student_norm = torch.norm(logits_student.gather(1, target.unsqueeze(1))).item()
     
@@ -43,25 +43,27 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, temperature, i
     )
     
     with torch.enable_grad():
+        # compute Partial derivative of the loss w.r.t the logits
         target_class_gradients = torch.autograd.grad(tckd_loss, logits_student, create_graph=True)[0]
         non_target_class_gradients = torch.autograd.grad(nckd_loss, logits_student, create_graph=True)[0]
+
+        # normalize the gradients
         target_class_gradients = F.normalize(target_class_gradients.view(target_class_gradients.size(0), -1), dim=1)
         non_target_class_gradients = F.normalize(non_target_class_gradients.view(non_target_class_gradients.size(0), -1), dim=1)
 
+        # compute the mean of the gradients.
+        non_target_class_gradients_mean = non_target_class_gradients.mean()
+        target_class_gradients_mean = target_class_gradients.mean()
 
-    alignment_loss = F.cosine_similarity(
-            target_class_gradients.view(target_class_gradients.size(0), -1),
-            non_target_class_gradients.view(non_target_class_gradients.size(0), -1),
-            dim=1
-        ).mean()
-    
-    if induce_sim:
-        total_loss = 0.25 * tckd_loss + 0.25 * nckd_loss - 0.5 * alignment_loss
-    elif remove_sim:
-        dissimilarity_loss = 1 - alignment_loss  # Penalize alignment
-        total_loss = 0.25 * tckd_loss + 0.25 * nckd_loss + 0.5 * dissimilarity_loss
+    alignment_loss = F.mse_loss(target_class_gradients, non_target_class_gradients)
+        
+    if grad_logit_sim:
+        total_loss = alpha * tckd_loss + beta * nckd_loss - gamma * target_class_gradients_mean - phi * non_target_class_gradients_mean - epsilon * alignment_loss
+    elif grad_sim: 
+        total_loss = alpha * tckd_loss + beta * nckd_loss + epsilon * alignment_loss
     else:
         total_loss = alpha * tckd_loss + beta * nckd_loss
+
     return total_loss, tckd_loss, nckd_loss, target_student_norm, non_target_student_norm, alignment_loss.item()
 
 
@@ -84,24 +86,27 @@ def cat_mask(t, mask1, mask2):
     return rt
 
 class DKD(nn.Module):
-    def __init__(self, student, teacher, cfg, induce_sim =False, remove_sim=False):
+    def __init__(self, student, teacher, cfg, grad_logit_sim =False, grad_sim=False):
         super(DKD, self).__init__()
-        self.alpha = cfg.alpha
-        self.beta = 1-cfg.alpha
-        self.temperature = cfg.temperature
+        self.alpha = cfg.hyperparameters[0]
+        self.beta = cfg.hyperparameters[1]
+        self.gamma = cfg.hyperparameters[2]
+        self.phi = cfg.hyperparameters[3]
+        self.epsilon = cfg.hyperparameters[4]
+        self.temperature = cfg.hyperparameters[5]
         self.student = student
         self.teacher = teacher
-        self.epochs = cfg.distillepochs
+        self.epochs = cfg.epochs[1]
 
-        self.induce_sim = induce_sim
-        self.remove_sim = remove_sim
+        self.grad_logit_sim = grad_logit_sim
+        self.grad_sim = grad_sim
         
     def forward_train(self, image, target, **kwargs):
         logits_student = self.student(image)
         with torch.no_grad():
             logits_teacher = self.teacher(image)
 
-        decoupled_loss, tckd_loss, nckd_loss, target_norm, nontarget_norm, grad_sim = dkd_loss(logits_student, logits_teacher, target, self.alpha, self.beta, self.temperature, self.induce_sim, self.remove_sim)
+        decoupled_loss, tckd_loss, nckd_loss, target_norm, nontarget_norm, grad_sim = dkd_loss(logits_student, logits_teacher, target, self.alpha, self.beta, self.temperature, self.grad_logit_sim, self.grad_sim)
         losses_dict = {
             "loss_kd": decoupled_loss,
             "loss_tckd": tckd_loss,
@@ -115,12 +120,12 @@ class DKD(nn.Module):
 class LogitMatching(nn.Module):
     def __init__(self, student, teacher, cfg):
         super(LogitMatching, self).__init__()
-        self.alpha = cfg.alpha
-        self.beta = 1-cfg.alpha
-        self.temperature = cfg.temperature
+        self.alpha = cfg.hyperparameters[0]
+        self.beta = cfg.hyperparameters[1]
+        self.temperature = cfg.hyperparameters[5]
         self.student = student
         self.teacher = teacher
-        self.epochs = cfg.distillepochs
+        self.epochs = cfg.epochs[1]
     
     def forward_train(self, image, target, **kwargs):
         student_logits = self.student(image)

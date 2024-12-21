@@ -6,15 +6,6 @@ from distillation.decoupled_distillation import *
 import os
 import torch.nn.functional as F
 from torchvision.models import resnet18, resnet34, resnet50, resnet101, vgg11, vgg13, vgg16, vgg19
-from models.resnet import ResNet
-
-
-model_parameters={}
-model_parameters['resnet18'] = ([64,128,256,512],[2,2,2,2],1,False)
-model_parameters['resnet34'] = ([64,128,256,512],[3,4,6,3],1,False)
-model_parameters['resnet50'] = ([64,128,256,512],[3,4,6,3],4,True)
-model_parameters['resnet101'] = ([64,128,256,512],[3,4,23,3],4,True)
-model_parameters['resnet152'] = ([64,128,256,512],[3,8,36,3],4,True)
 
 
 class TeacherModel(nn.Module):
@@ -51,19 +42,18 @@ class TeacherModel(nn.Module):
         return self.model(x)
 
 class StudentModel(nn.Module):
-    def __init__(self, model, num_classes, orthogonal_projection=False):
+    def __init__(self, model, num_classes):
         super(StudentModel, self).__init__()
 
-        self.orthogonal_projection = orthogonal_projection
 
         if model == "resnet18":
-            self.model = ResNet(model_parameters[model], 3, num_classes, self.orthogonal_projection)
+            self.model = resnet18(pretrained=False)
         elif model == "resnet34":
-            self.model = ResNet(model_parameters[model], 3, num_classes, self.orthogonal_projection)
+            self.model = resnet34(pretrained=False)
         elif model == "resnet50":
-            self.model = ResNet(model_parameters[model], 3, num_classes, self.orthogonal_projection)
+            self.model = resnet50(pretrained=False)
         elif model == "resnet101":
-            self.model = ResNet(model_parameters[model], 3, num_classes, self.orthogonal_projection)
+            self.model = resnet101(pretrained=False)
         elif model == "vgg11":
             self.model = vgg11(pretrained=False)
         elif model == "vgg13":
@@ -84,7 +74,7 @@ class StudentModel(nn.Module):
         return self.model(x)
 
 class KnowledgeDistillation:
-    def __init__(self, teacher, student, train_loader, test_loader, optimizer, device, cfg, type, induce_sim=False, remove_sim=False):
+    def __init__(self, teacher, student, train_loader, test_loader, optimizer, device, cfg, type, grad_logit_sim=False, grad_sim=False):
         """
         Initializes the KnowledgeDistillation class.
 
@@ -104,14 +94,14 @@ class KnowledgeDistillation:
         self.test_loader = test_loader
         self.optimizer = optimizer
         self.device = device
-        self.epochs = cfg.distillepochs
+        self.epochs = cfg.epochs[1]
         self.output_dir = cfg.distill_dir
         self.type = type
         
         self.teacher.to(device)
         self.student.to(device)
 
-        self.DKD = DKD(self.student, self.teacher, cfg, induce_sim, remove_sim)
+        self.DKD = DKD(self.student, self.teacher, cfg, grad_logit_sim, grad_sim)
         self.LogitMatching = LogitMatching(self.student, self.teacher, cfg)
         
 
@@ -228,7 +218,7 @@ class KnowledgeDistillation:
         with open(log_path, 'w') as f:
             writer = csv.writer(f)
 
-            if self.type=="decoupled":
+            if self.type.startswith("decoupled"):
                 writer.writerow(["epochs", "train_loss", "train_acc", "test_acc", "avg_grad_similarity", "tckd_grad_norm", "nckd_grad_norm", "target_norm", "nontarget_norm"])
             else:
                 writer.writerow(["epochs", "train_loss", "train_acc", "test_acc"])
