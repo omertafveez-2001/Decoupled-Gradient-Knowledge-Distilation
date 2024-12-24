@@ -132,12 +132,12 @@ if __name__ == "__main__":
     dkd_model.train("logs", "models")
 
     # Decoupled Knowledge Distillation with similarity
-    print("Distilling knowledge using DKD with similarity...")
+    print("Distilling knowledge using DKD with gradient similarity and gradient means...")
     dkd_model = KnowledgeDistillation(teachermodel, decoupled_sim, train_loader, test_loader, decoupled_sim_optimizer, device,args, type="decoupled_logitgrad_sim", grad_logit_sim=True)
     dkd_model.train("logs", "models")
 
     # Decoupled Knowledge Distillation with reduction of similarity
-    print("Distilling Knowledge using DKD with reducing similarity...")
+    print("Distilling Knowledge using DKD with gradient similarity...")
     dkd_model = KnowledgeDistillation(teachermodel, decoupled_sim2, train_loader, test_loader, decoupled_sim2_optimizer, device,args, type="decoupled_grad_sim",grad_sim=True)
     dkd_model.train("logs", "models")
 
