@@ -2,6 +2,26 @@ import torchvision
 import torchvision.transforms.v2 as transforms
 from torch.utils.data import Dataset, DataLoader
 from typing import Optional
+from torchvision import datasets
+from torch.utils.data import random_split
+
+def get_custom_data(train_path: str, TRAIN_TFMS, TEST_TFMS, split_ratio: float = 0.8):
+    # Load the dataset
+    full_dataset = datasets.ImageFolder(train_path, transform=TRAIN_TFMS)
+    
+    # Calculate split sizes
+    total_size = len(full_dataset)
+    train_size = int(split_ratio * total_size)
+    val_size = total_size - train_size
+    
+    # Split the dataset
+    train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+    
+    # Apply transformations
+    train_dataset.dataset.transform = TRAIN_TFMS
+    val_dataset.dataset.transform = TEST_TFMS
+    
+    return train_dataset, val_dataset
 
 
 def get_dataset(name, augment=False, root="./data"):

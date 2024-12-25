@@ -25,6 +25,8 @@ if __name__ == "__main__":
     parser.add_argument("--augment", type=bool, default=False, help="Augment data")
     parser.add_argument("--teachermodel_path", type=str, default=None, help="Path to the finetuned model")
     parser.add_argument("--studentmodel_path", type=str, default=None, help="Path to the finetuned student")
+    parser.add_argument("--bias_eval", type=str, default=None, help="Bias Evaluation-choose from style, scrambled")
+    parser.add_argument("--datasetpath", type=str, default=None, help="Custom Dataset for distillation and training")
 
     args = parser.parse_args()
     set_seed()
@@ -59,11 +61,13 @@ if __name__ == "__main__":
             transforms.ToTensor(),
         ])
 
-    
-    train_ds, test_ds = get_dataset(args.dataset, args.augment, root=f'./data/{args.dataset}')
+    if args.bias_eval is None:
+        train_ds, test_ds = get_dataset(args.dataset, args.augment, root=f'./data/{args.dataset}')
+    else:
+        train_ds, test_ds = get_custom_data(args.datasetpath, TRAIN_TFMS, TEST_TFMS)
+
     train_loader = get_dataloader(train_ds, batch_size, is_train=True, num_workers=num_workers)
     test_loader = get_dataloader(test_ds, batch_size, is_train=False, num_workers=num_workers)
-
     if args.dataset == 'SVHN':
         num_classes = 10
     else:
@@ -123,22 +127,22 @@ if __name__ == "__main__":
 
     # Logit Matching
     print("Distilling knowledge using Logit Matching...")
-    logit_model = KnowledgeDistillation(teachermodel, logitmatching, train_loader, test_loader, logitmatchingoptimizer, device,args, type="logit_matching")
+    logit_model = KnowledgeDistillation(teachermodel, logitmatching, train_loader, test_loader, logitmatchingoptimizer, device,args, type=f"logit_matching_{args.dataset}")
     logit_model.train("logs", "models")
 
     # Decoupled Knowledge Distillation
     print("Distilling knowledge using DKD...")
-    dkd_model = KnowledgeDistillation(teachermodel, decoupledkd, train_loader, test_loader, decoupledkdoptimizer, device,args, type="decoupled")
+    dkd_model = KnowledgeDistillation(teachermodel, decoupledkd, train_loader, test_loader, decoupledkdoptimizer, device,args, type=f"decoupled_{args.dataset}")
     dkd_model.train("logs", "models")
 
     # Decoupled Knowledge Distillation with similarity
     print("Distilling knowledge using DKD with gradient similarity and gradient means...")
-    dkd_model = KnowledgeDistillation(teachermodel, decoupled_sim, train_loader, test_loader, decoupled_sim_optimizer, device,args, type="decoupled_logitgrad_sim", grad_logit_sim=True)
+    dkd_model = KnowledgeDistillation(teachermodel, decoupled_sim, train_loader, test_loader, decoupled_sim_optimizer, device,args, type=f"decoupled_v1_{args.dataset}", grad_logit_sim=True)
     dkd_model.train("logs", "models")
 
     # Decoupled Knowledge Distillation with reduction of similarity
     print("Distilling Knowledge using DKD with gradient similarity...")
-    dkd_model = KnowledgeDistillation(teachermodel, decoupled_sim2, train_loader, test_loader, decoupled_sim2_optimizer, device,args, type="decoupled_grad_sim",grad_sim=True)
+    dkd_model = KnowledgeDistillation(teachermodel, decoupled_sim2, train_loader, test_loader, decoupled_sim2_optimizer, device,args, type=f"decoupled_v2_{args.dataset}",grad_sim=True)
     dkd_model.train("logs", "models")
 
     
