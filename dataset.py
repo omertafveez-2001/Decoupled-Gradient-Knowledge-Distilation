@@ -10,7 +10,7 @@ from torch.utils.data import random_split
 
 
 class AddNoiseToPatch:
-    def __init__(self, noise_level=0.1, patch_coords=(0, 0, 50, 50)):
+    def __init__(self, noise_level=0.2, patch_coords=(0, 0, 50, 50)):
         self.noise_level = noise_level
         self.patch_coords = patch_coords  # (x1, y1, x2, y2)
 

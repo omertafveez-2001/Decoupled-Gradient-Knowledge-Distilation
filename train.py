@@ -118,11 +118,11 @@ if __name__ == "__main__":
             )
         elif args.bias_eval == "noised":
             teachertrain_ds, teachertest_ds = get_noised_data(
-                args.dataset, noise_size=0.2, root=f"./data/{args.dataset}"
+                args.dataset, noise_size=100, root=f"./data/{args.dataset}"
             )
         elif args.bias_eval == "scrambled":
             teachertrain_ds, teachertest_ds = get_scrambled_data(
-                args.datasetpath, patch_size=56, root=f"./data/{args.dataset}"
+                args.dataset, patch_size=56, root=f"./data/{args.dataset}"
             )
         else:
             teachertrain_ds, teachertest_ds = get_dataset(
