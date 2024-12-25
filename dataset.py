@@ -5,7 +5,42 @@ from typing import Optional
 from torchvision import datasets
 from torch.utils.data import random_split
 
-def get_custom_data(train_path: str, TRAIN_TFMS, TEST_TFMS, split_ratio: float = 0.8):
+def get_custom_data(train_path: str, augment=False, split_ratio: float = 0.8):
+    IMAGE_SIZE = 224
+    if augment:
+        TRAIN_TFMS = transforms.Compose(
+            [
+                transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    (0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)
+                ),
+            ]
+        )
+        TEST_TFMS = transforms.Compose(
+            [
+                transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    (0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)
+                ),
+            ]
+        )
+    else:
+        TRAIN_TFMS = transforms.Compose(
+            [
+                transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+                transforms.ToTensor(),
+            ]
+        )
+        TEST_TFMS = transforms.Compose(
+            [
+                transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+                transforms.ToTensor(),
+            ]
+        )
+
     # Load the dataset
     full_dataset = datasets.ImageFolder(train_path, transform=TRAIN_TFMS)
     

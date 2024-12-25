@@ -37,41 +37,29 @@ if __name__ == "__main__":
     os.makedirs(f'models', exist_ok=True)
     os.makedirs(f'logs', exist_ok=True)
 
-    if args.augment:
-        IMAGE_SIZE = 224
-        TRAIN_TFMS = transforms.Compose([
-                    transforms.Resize((224,224)),
-                    transforms.RandomHorizontalFlip(),
-                    transforms.ToTensor(),
-                    transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)),
-        ])
-        TEST_TFMS = transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)),
-        ])
-    else:
-        IMAGE_SIZE = 224
-        TRAIN_TFMS = transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-        ])
-        TEST_TFMS = transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-        ])
+    # Original Dataset
+    teachertrain_ds, teachertest_ds = get_dataset(args.dataset, args.augment, root=f'./data/{args.dataset}')
+    studenttrain_ds = teachertrain_ds
+    studenttest_ds = teachertest_ds
 
-    if args.bias_eval is None:
-        train_ds, test_ds = get_dataset(args.dataset, args.augment, root=f'./data/{args.dataset}')
-    else:
-        train_ds, test_ds = get_custom_data(args.datasetpath, TRAIN_TFMS, TEST_TFMS)
+    # augmented
+    if args.augment or args.bias_eval:
+        if args.bias_eval=="stylized":
+            teachertrain_ds, teachertest_ds = get_custom_data(args.datasetpath, args.augment)
+        else:
+            teachertrain_ds, teachertest_ds = get_dataset(args.dataset, args.augment, root=f'./data/{args.dataset}')
+    
+    # original 
+    studenttrain_loader = get_dataloader(studenttrain_ds, batch_size, is_train=True, num_workers=num_workers)
+    studenttest_loader = get_dataloader(studenttest_ds, batch_size, is_train=False, num_workers=num_workers)
 
-    train_loader = get_dataloader(train_ds, batch_size, is_train=True, num_workers=num_workers)
-    test_loader = get_dataloader(test_ds, batch_size, is_train=False, num_workers=num_workers)
+    # augmented/original 
+    teachertrain_loader = get_dataloader(teachertrain_ds, batch_size, is_train=True, num_workers=num_workers)
+    teachertest_loader = get_dataloader(teachertest_ds, batch_size, is_train=False, num_workers=num_workers)
     if args.dataset == 'SVHN':
         num_classes = 10
     else:
-        num_classes = len(train_ds.classes)
+        num_classes = len(studenttrain_ds.classes)
     
     teachermodel = TeacherModel(args.teachermodel, num_classes)
     studentmodel = StudentModel(args.studentmodel, num_classes)
@@ -102,7 +90,7 @@ if __name__ == "__main__":
         print("Teacher Model Loaded...")
     else:
         print("Finetuning teacher model...")
-        teacher = Finetune(teachermodel, train_loader, test_loader, teacheroptimizer, criterion, device, args.epochs[0] ,args.teacher_dir)
+        teacher = Finetune(teachermodel, teachertrain_loader, teachertest_loader, teacheroptimizer, criterion, device, args.epochs[0] ,args.teacher_dir)
         teacher_trainacc, teacher_testacc, teacher_losses = teacher.train("logs", "models")
 
     if args.studentmodel_path:
@@ -111,7 +99,7 @@ if __name__ == "__main__":
         print("Student Model Loaded...")
     else:
         print("Finetuning student model...")
-        student = Finetune(studentmodel, train_loader, test_loader, studentoptimizer, criterion, device, args.epochs[1], args.student_dir)
+        student = Finetune(studentmodel, studenttrain_loader, teachertest_loader, studentoptimizer, criterion, device, args.epochs[1], args.student_dir)
         student_trainacc, student_testacc, student_losses = student.train("logs", "models")
 
     
@@ -127,22 +115,22 @@ if __name__ == "__main__":
 
     # Logit Matching
     print("Distilling knowledge using Logit Matching...")
-    logit_model = KnowledgeDistillation(teachermodel, logitmatching, train_loader, test_loader, logitmatchingoptimizer, device,args, type=f"logit_matching")
+    logit_model = KnowledgeDistillation(teachermodel, logitmatching, teachertrain_loader, teachertest_loader, logitmatchingoptimizer, device,args, type=f"logit_matching")
     logit_model.train("logs", "models")
 
     # Decoupled Knowledge Distillation
     print("Distilling knowledge using DKD...")
-    dkd_model = KnowledgeDistillation(teachermodel, decoupledkd, train_loader, test_loader, decoupledkdoptimizer, device,args, type=f"decoupled_{args.dataset}")
+    dkd_model = KnowledgeDistillation(teachermodel, decoupledkd, teachertrain_loader, teachertest_loader, decoupledkdoptimizer, device,args, type=f"decoupled_{args.dataset}")
     dkd_model.train("logs", "models")
 
     # Decoupled Knowledge Distillation with similarity
     print("Distilling knowledge using DKD with gradient similarity and gradient means...")
-    dkd_model = KnowledgeDistillation(teachermodel, decoupled_sim, train_loader, test_loader, decoupled_sim_optimizer, device,args, type=f"decoupled_v1_{args.dataset}", grad_logit_sim=True)
+    dkd_model = KnowledgeDistillation(teachermodel, decoupled_sim, teachertrain_loader, teachertest_loader, decoupled_sim_optimizer, device,args, type=f"decoupled_v1_{args.dataset}", grad_logit_sim=True)
     dkd_model.train("logs", "models")
 
     # Decoupled Knowledge Distillation with reduction of similarity
     print("Distilling Knowledge using DKD with gradient similarity...")
-    dkd_model = KnowledgeDistillation(teachermodel, decoupled_sim2, train_loader, test_loader, decoupled_sim2_optimizer, device,args, type=f"decoupled_v2_{args.dataset}",grad_sim=True)
+    dkd_model = KnowledgeDistillation(teachermodel, decoupled_sim2, teachertrain_loader, teachertest_loader, decoupled_sim2_optimizer, device,args, type=f"decoupled_v2_{args.dataset}",grad_sim=True)
     dkd_model.train("logs", "models")
 
     
