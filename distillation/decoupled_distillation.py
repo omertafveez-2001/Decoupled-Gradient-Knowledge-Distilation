@@ -65,8 +65,8 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, gamma, phi, ep
             target_class_self_correlation = target_class_self_correlation / target_class_self_correlation  
             non_target_class_self_correlation = non_target_class_self_correlation / non_target_class_self_correlation  
         else:
-            target_class_gradients_mean = F.normalize(target_class_gradients.view(target_class_gradients.size(0), -1), dim=1).mean()
-            non_target_class_gradients_mean = F.normalize(non_target_class_gradients.view(non_target_class_gradients.size(0), -1), dim=1).mean()
+            target_class_gradients_mean = target_class_gradients.mean()
+            non_target_class_gradients_mean = non_target_class_gradients.mean()
 
         
     alignment_loss = F.mse_loss(target_class_gradients, non_target_class_gradients)
