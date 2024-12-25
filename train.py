@@ -127,7 +127,7 @@ if __name__ == "__main__":
 
     # Logit Matching
     print("Distilling knowledge using Logit Matching...")
-    logit_model = KnowledgeDistillation(teachermodel, logitmatching, train_loader, test_loader, logitmatchingoptimizer, device,args, type=f"logit_matching_{args.dataset}")
+    logit_model = KnowledgeDistillation(teachermodel, logitmatching, train_loader, test_loader, logitmatchingoptimizer, device,args, type=f"logit_matching")
     logit_model.train("logs", "models")
 
     # Decoupled Knowledge Distillation
