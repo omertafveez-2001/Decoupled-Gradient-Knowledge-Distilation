@@ -48,13 +48,10 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, gamma, phi, ep
         non_target_class_gradients = torch.autograd.grad(nckd_loss, logits_student, create_graph=True)[0]
 
         # normalize the gradients
-        target_class_gradients = F.normalize(target_class_gradients.view(target_class_gradients.size(0), -1), dim=1)
-        non_target_class_gradients = F.normalize(non_target_class_gradients.view(non_target_class_gradients.size(0), -1), dim=1)
+        target_class_gradients_mean = F.normalize(target_class_gradients.view(target_class_gradients.size(0), -1), dim=1).mean()
+        non_target_class_gradients_mean = F.normalize(non_target_class_gradients.view(non_target_class_gradients.size(0), -1), dim=1).mean()
 
-        # compute the mean of the gradients.
-        non_target_class_gradients_mean = non_target_class_gradients.mean()
-        target_class_gradients_mean = target_class_gradients.mean()
-
+        
     alignment_loss = F.mse_loss(target_class_gradients, non_target_class_gradients)
         
     if grad_logit_sim:
