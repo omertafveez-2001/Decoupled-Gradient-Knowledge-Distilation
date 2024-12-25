@@ -11,15 +11,12 @@ warnings.filterwarnings("ignore")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Train a student model using knowledge distillation."
-    )
+    parser = argparse.ArgumentParser(description="Train a student model using knowledge distillation.")
     parser.add_argument(
         "--teachermodel",
         type=str,
         default="resnet18",
-        help="Teacher model architecture",
-    )
+        help="Teacher model architecture",)
     parser.add_argument(
         "--studentmodel",
         type=str,
@@ -121,11 +118,11 @@ if __name__ == "__main__":
             )
         elif args.bias_eval == "noised":
             teachertrain_ds, teachertest_ds = get_noised_data(
-                args.datasetpath, args.augment
+                args.dataset, noise_size=0.2
             )
         elif args.bias_eval == "scrambled":
             teachertrain_ds, teachertest_ds = get_scrambled_data(
-                args.datasetpath, args.augment
+                args.datasetpath, patch_size=56
             )
         else:
             teachertrain_ds, teachertest_ds = get_dataset(
@@ -158,12 +155,8 @@ if __name__ == "__main__":
 
     print("============================================")
     print(f"Using device: {device}")
-    print(
-        f"Teacher Model: {args.teachermodel} with parameters {count_parameters(teachermodel)}"
-    )
-    print(
-        f"Student Model {args.studentmodel} with parameters {count_parameters(studentmodel)}"
-    )
+    print(f"Teacher Model: {args.teachermodel} with parameters {count_parameters(teachermodel)}")
+    print(f"Student Model {args.studentmodel} with parameters {count_parameters(studentmodel)}")
     print(f"Finetuning Epochs {args.epochs[0]}")
     print(f"Distillation Epochs {args.epochs[1]}")
     print(f"Dataset: {args.dataset}")
@@ -173,7 +166,9 @@ if __name__ == "__main__":
     else:
         print("Running without Augmented Data")
     print("============================================")
-
+    if args.bias_eval:
+        print(f"Running Bias Evaluation on {args.bias_eval} data")
+    print("============================================")
     teacheroptimizer = torch.optim.AdamW(
         teachermodel.parameters(), lr=args.learningrates[0]
     )
