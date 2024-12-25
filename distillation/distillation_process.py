@@ -74,7 +74,7 @@ class StudentModel(nn.Module):
         return self.model(x)
 
 class KnowledgeDistillation:
-    def __init__(self, teacher, student, train_loader, test_loader, optimizer, device, cfg, type, grad_logit_sim=False, grad_sim=False):
+    def __init__(self, teacher, student, train_loader, test_loader, optimizer, device, cfg, type, alignment=False, cross_covariance=False):
         """
         Initializes the KnowledgeDistillation class.
 
@@ -101,7 +101,7 @@ class KnowledgeDistillation:
         self.teacher.to(device)
         self.student.to(device)
 
-        self.DKD = DKD(self.student, self.teacher, cfg, grad_logit_sim, grad_sim)
+        self.DKD = DKD(self.student, self.teacher, cfg, alignment, cross_covariance)
         self.LogitMatching = LogitMatching(self.student, self.teacher, cfg)
         
 

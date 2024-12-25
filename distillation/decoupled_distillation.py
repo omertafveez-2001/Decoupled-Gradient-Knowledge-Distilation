@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-def dkd_loss(logits_student, logits_teacher, target, alpha, beta, gamma, phi, epsilon, temperature, grad_logit_sim=False, grad_sim=False):
+def dkd_loss(logits_student, logits_teacher, target, alpha, beta, gamma, phi, epsilon, delta, temperature, alignment=False, cross_covariance=False):
     # target class logits norms
     target_student_norm = torch.norm(logits_student.gather(1, target.unsqueeze(1))).item()
     
@@ -48,16 +48,33 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, gamma, phi, ep
         non_target_class_gradients = torch.autograd.grad(nckd_loss, logits_student, create_graph=True)[0]
 
         # normalize the gradients
-        target_class_gradients_mean = F.normalize(target_class_gradients.view(target_class_gradients.size(0), -1), dim=1).mean()
-        non_target_class_gradients_mean = F.normalize(non_target_class_gradients.view(non_target_class_gradients.size(0), -1), dim=1).mean()
+        if cross_covariance:
+            # compute the cross correlation between target and non-target class gradients
+            non_target_class_gradients_mean = non_target_class_gradients.mean()
+            target_class_gradients_mean = target_class_gradients.mean()
+
+            non_target_class_gradients_centered = non_target_class_gradients - non_target_class_gradients_mean
+            target_class_gradients_centered = target_class_gradients - target_class_gradients_mean
+            
+            correlation = (target_class_gradients_centered @ non_target_class_gradients_centered.T).sum()
+            target_class_self_correlation = (target_class_gradients_centered @ target_class_gradients_centered.T).sum()
+            non_target_class_self_correlation = (non_target_class_gradients_centered @ non_target_class_gradients_centered.T).sum()
+
+            # Normalize correlations
+            correlation = correlation / torch.sqrt(target_class_self_correlation * non_target_class_self_correlation)
+            target_class_self_correlation = target_class_self_correlation / target_class_self_correlation  
+            non_target_class_self_correlation = non_target_class_self_correlation / non_target_class_self_correlation  
+        else:
+            target_class_gradients_mean = F.normalize(target_class_gradients.view(target_class_gradients.size(0), -1), dim=1).mean()
+            non_target_class_gradients_mean = F.normalize(non_target_class_gradients.view(non_target_class_gradients.size(0), -1), dim=1).mean()
 
         
     alignment_loss = F.mse_loss(target_class_gradients, non_target_class_gradients)
         
-    if grad_logit_sim:
+    if alignment:
         total_loss = alpha * tckd_loss + beta * nckd_loss - gamma * target_class_gradients_mean - phi * non_target_class_gradients_mean - epsilon * alignment_loss
-    elif grad_sim: 
-        total_loss = alpha * tckd_loss + beta * nckd_loss - epsilon * alignment_loss
+    elif cross_covariance:
+        total_loss = alpha * tckd_loss + beta * nckd_loss - gamma*(1-target_class_self_correlation)**2 - phi*(1-non_target_class_self_correlation)**2 - delta*(correlation)**2 - epsilon * alignment_loss
     else:
         total_loss = alpha * tckd_loss + beta * nckd_loss
 
@@ -83,27 +100,28 @@ def cat_mask(t, mask1, mask2):
     return rt
 
 class DKD(nn.Module):
-    def __init__(self, student, teacher, cfg, grad_logit_sim =False, grad_sim=False):
+    def __init__(self, student, teacher, cfg, alignment=False, cross_covariance=False):
         super(DKD, self).__init__()
         self.alpha = cfg.hyperparameters[0]
         self.beta = cfg.hyperparameters[1]
         self.gamma = cfg.hyperparameters[2]
         self.phi = cfg.hyperparameters[3]
         self.epsilon = cfg.hyperparameters[4]
-        self.temperature = cfg.hyperparameters[5]
+        self.delta = cfg.hyperparameters[5]
+        self.temperature = cfg.hyperparameters[6]
         self.student = student
         self.teacher = teacher
         self.epochs = cfg.epochs[1]
 
-        self.grad_logit_sim = grad_logit_sim
-        self.grad_sim = grad_sim
+        self.alignment=alignment
+        self.cross_covariance=cross_covariance
         
     def forward_train(self, image, target, **kwargs):
         logits_student = self.student(image)
         with torch.no_grad():
             logits_teacher = self.teacher(image)
 
-        decoupled_loss, tckd_loss, nckd_loss, target_norm, nontarget_norm, grad_sim = dkd_loss(logits_student, logits_teacher, target, self.alpha, self.beta, self.gamma, self.phi, self.epsilon, self.temperature, self.grad_logit_sim, self.grad_sim)
+        decoupled_loss, tckd_loss, nckd_loss, target_norm, nontarget_norm, grad_sim = dkd_loss(logits_student, logits_teacher, target, self.alpha, self.beta, self.gamma, self.phi, self.epsilon, self.delta, self.temperature, self.alignment, self.cross_covariance)
         losses_dict = {
             "loss_kd": decoupled_loss,
             "loss_tckd": tckd_loss,

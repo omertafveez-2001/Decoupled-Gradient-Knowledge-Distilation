@@ -40,8 +40,8 @@ if __name__ == "__main__":
         "--hyperparameters",
         type=float,
         nargs="+",
-        default=[0.5, 0.5, 1, 7, 2, 3],
-        help="Hyperparameters for distillation loss [alpha, beta, gamma, phi, epsilon, temperature]",
+        default=[0.5, 0.5, 1, 7, 2, 0.6, 3],
+        help="Hyperparameters for distillation loss [alpha, beta, gamma, phi, epsilon, delta, temperature]",
     )
     parser.add_argument(
         "--student_dir",
@@ -220,8 +220,8 @@ if __name__ == "__main__":
 
     logitmatching = StudentModel(args.studentmodel, num_classes)
     decoupledkd = StudentModel(args.studentmodel, num_classes)
-    decoupled_sim = StudentModel(args.studentmodel, num_classes)  # logit_grad_sim
-    decoupled_sim2 = StudentModel(args.studentmodel, num_classes)  # grad_sim
+    decoupled_sim = StudentModel(args.studentmodel, num_classes)  
+    decoupled_sim2 = StudentModel(args.studentmodel, num_classes)  # cross_covariance
 
     logitmatchingoptimizer = torch.optim.AdamW(
         logitmatching.parameters(), lr=args.learningrates[1]
@@ -266,7 +266,7 @@ if __name__ == "__main__":
 
     # Decoupled Knowledge Distillation with similarity
     print(
-        "Distilling knowledge using DKD with gradient similarity and gradient means..."
+        "Distilling knowledge using DKD with alignment"
     )
     dkd_model = KnowledgeDistillation(
         teachermodel,
@@ -277,12 +277,11 @@ if __name__ == "__main__":
         device,
         args,
         type=f"decoupled_v1_{args.dataset}",
-        grad_logit_sim=True,
+        alignment=True,
     )
     dkd_model.train("logs", "models")
 
-    # Decoupled Knowledge Distillation with reduction of similarity
-    print("Distilling Knowledge using DKD with gradient similarity...")
+    print("Distilling knowledge using DKD with alignment and cross covariance")
     dkd_model = KnowledgeDistillation(
         teachermodel,
         decoupled_sim2,
@@ -292,6 +291,5 @@ if __name__ == "__main__":
         device,
         args,
         type=f"decoupled_v2_{args.dataset}",
-        grad_sim=True,
+        cross_covariance=True,
     )
-    dkd_model.train("logs", "models")
