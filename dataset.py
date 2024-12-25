@@ -3,10 +3,11 @@ from PIL import Image
 import torch
 import torchvision
 import torchvision.transforms.v2 as transforms
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, Subset
 from typing import Optional
 from torchvision import datasets
 from torch.utils.data import random_split
+from collections import defaultdict
 
 
 class AddNoiseToPatch:
@@ -79,116 +80,147 @@ class PatchScrambler:
         return self.scramble(image)
 
 
+def get_Food101_subset(root, TRAIN_TFMS, TEST_TFMS, img_per_class=600):
+
+    def filter_by_class(dataset, images_per_class):
+        class_counts = defaultdict(int)
+        selected_indices = []
+
+        for i, (image, label) in enumerate(dataset):
+            if class_counts[label] < images_per_class:
+                selected_indices.append(i)
+                class_counts[label] += 1
+
+        return Subset(dataset, selected_indices)
+
+    trainset = torchvision.datasets.Food101(
+        root + "/train", split="train", download=True, transform=TRAIN_TFMS
+    )
+    testset = torchvision.datasets.Food101(
+        root + "/noise-val", split="test", download=True, transform=TEST_TFMS
+    )
+
+    filtered_trainset = filter_by_class(trainset, img_per_class)
+    filtered_testset = filter_by_class(testset, img_per_class)
+
+    return filtered_trainset, filtered_testset
+
+
 def get_noised_data(name, noise_size, root="./data"):
 
-    NOISE_TEST_TFMS = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.CenterCrop(224),
-        AddNoiseToPatch(noise_level=25, patch_coords=(50, 50, 50+noise_size, 50+noise_size)),
-        transforms.ToTensor(),
-        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-    ])
-    
+    NOISE_TEST_TFMS = transforms.Compose(
+        [
+            transforms.Resize((256, 256)),
+            transforms.CenterCrop(224),
+            AddNoiseToPatch(
+                noise_level=25, patch_coords=(50, 50, 50 + noise_size, 50 + noise_size)
+            ),
+            transforms.ToTensor(),
+            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+        ]
+    )
 
-    if name == 'MNIST':
+    if name == "MNIST":
         trainset = torchvision.datasets.MNIST(
-            root+'/train', train=True, download=True, transform=NOISE_TEST_TFMS
+            root + "/train", train=True, download=True, transform=NOISE_TEST_TFMS
         )
 
         testset = torchvision.datasets.MNIST(
-            root+'/noise-val', train=False, download=True, transform=NOISE_TEST_TFMS
-        )
-        
-    if name == 'Food101':
-        trainset = torchvision.datasets.Food101(
-            root+'/train', train=True, download=True, transform=NOISE_TEST_TFMS
+            root + "/noise-val", train=False, download=True, transform=NOISE_TEST_TFMS
         )
 
-        testset = torchvision.datasets.Food101(
-            root+'/noise-val', train=False, download=True, transform=NOISE_TEST_TFMS
-        )
-    
-                                                                                    
-    elif name == 'CIFAR-10':
+    if name == "Food101":
+        # trainset = torchvision.datasets.FOOD101(
+        #     root + "/train", train=True, download=True, transform=NOISE_TEST_TFMS
+        # )
+
+        # testset = torchvision.datasets.FOOD101(
+        #     root + "/noise-val", train=False, download=True, transform=NOISE_TEST_TFMS
+        # )
+
+        trainset, testset = get_Food101_subset(root, NOISE_TEST_TFMS, NOISE_TEST_TFMS)
+
+    elif name == "CIFAR-10":
         trainset = torchvision.datasets.CIFAR10(
-            root+'/train', train=True, download=True, transform=NOISE_TEST_TFMS
+            root + "/train", train=True, download=True, transform=NOISE_TEST_TFMS
         )
 
         testset = torchvision.datasets.CIFAR10(
-            root+'/noise-val', train=False, download=True, transform=NOISE_TEST_TFMS
+            root + "/noise-val", train=False, download=True, transform=NOISE_TEST_TFMS
         )
-        
-                                                                           
-    elif name == 'CIFAR-100':
+
+    elif name == "CIFAR-100":
         trainset = torchvision.datasets.CIFAR100(
-            root+'/train', train=True, download=True, transform=NOISE_TEST_TFMS
+            root + "/train", train=True, download=True, transform=NOISE_TEST_TFMS
         )
 
         testset = torchvision.datasets.CIFAR100(
-            root+'/noise-val', train=False, download=True, transform=NOISE_TEST_TFMS
+            root + "/noise-val", train=False, download=True, transform=NOISE_TEST_TFMS
         )
-                                                                                    
+
     else:
-        raise ValueError('Incorrect dataset name. Choose from [MNIST, CIFAR-10, CIFAR-100].')
-    
+        raise ValueError(
+            "Incorrect dataset name. Choose from [MNIST, CIFAR-10, CIFAR-100]."
+        )
+
     return trainset, testset
 
-def get_scrambled_data(name, patch_size, root):
-    
-    SCRAMBLE_TFMS = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        PatchScrambler(patch_size=patch_size),
-        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-    ])
-    
-    if name == 'MNIST':
-        trainset = torchvision.datasets.MNIST(
-            root+'/train', train=True, download=True, transform=SCRAMBLE_TFMS
-        )
 
+def get_scrambled_data(name, patch_size, root):
+
+    SCRAMBLE_TFMS = transforms.Compose(
+        [
+            transforms.Resize((256, 256)),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            PatchScrambler(patch_size=patch_size),
+            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+        ]
+    )
+
+    if name == "MNIST":
+        trainset = torchvision.datasets.MNIST(
+            root + "/train", train=True, download=True, transform=SCRAMBLE_TFMS
+        )
 
         testset = torchvision.datasets.MNIST(
-            root+'/scrambled-val', train=False, download=True, transform=SCRAMBLE_TFMS
+            root + "/scrambled-val", train=False, download=True, transform=SCRAMBLE_TFMS
         )
-        
 
-    elif name == 'CIFAR-10':
+    elif name == "CIFAR-10":
         trainset = torchvision.datasets.CIFAR10(
-            root+'/train', train=True, download=True, transform=SCRAMBLE_TFMS
+            root + "/train", train=True, download=True, transform=SCRAMBLE_TFMS
         )
-
 
         testset = torchvision.datasets.CIFAR10(
-            root+'/scrambled-val', train=False, download=True, transform=SCRAMBLE_TFMS
-        )    
-        
-
-    elif name == 'CIFAR-100':
-        trainset = torchvision.datasets.CIFAR100(
-            root+'/train', train=True, download=True, transform=SCRAMBLE_TFMS
+            root + "/scrambled-val", train=False, download=True, transform=SCRAMBLE_TFMS
         )
 
+    elif name == "CIFAR-100":
+        trainset = torchvision.datasets.CIFAR100(
+            root + "/train", train=True, download=True, transform=SCRAMBLE_TFMS
+        )
 
         testset = torchvision.datasets.CIFAR100(
-            root+'/scrambled-val', train=False, download=True, transform=SCRAMBLE_TFMS
+            root + "/scrambled-val", train=False, download=True, transform=SCRAMBLE_TFMS
         )
 
-    elif name == 'Food101':
-        trainset = torchvision.datasets.Food101(
-            root+'/train', train=True, download=True, transform=SCRAMBLE_TFMS
-        )
+    elif name == "Food101":
+        # trainset = torchvision.datasets.FOOD101(
+        #     root + "/train", train=True, download=True, transform=SCRAMBLE_TFMS
+        # )
 
+        # testset = torchvision.datasets.FOOD101(
+        #     root + "/scrambled-val", train=False, download=True, transform=SCRAMBLE_TFMS
+        # )
 
-        testset = torchvision.datasets.FOOD101(
-            root+'/scrambled-val', train=False, download=True, transform=SCRAMBLE_TFMS
-        )
+        trainset, testset = get_Food101_subset(root, SCRAMBLE_TFMS, SCRAMBLE_TFMS)
 
-    
     else:
-        raise ValueError('Incorrect dataset name. Choose from [MNIST, CIFAR-10, CIFAR-100].')
-    
+        raise ValueError(
+            "Incorrect dataset name. Choose from [MNIST, CIFAR-10, CIFAR-100]."
+        )
+
     return trainset, testset
 
 
@@ -291,7 +323,7 @@ def get_dataset(name, augment=False, root="./data"):
     elif name == "SVHN":
         return get_SVHN_dataset(root, TRAIN_TFMS, TEST_TFMS)
     elif name == "Food101":
-        return get_Food101_dataset(root, TRAIN_TFMS, TEST_TFMS)
+        return get_Food101_subset(root, TRAIN_TFMS, TEST_TFMS)
     else:
         raise ValueError("Received invalid dataset name - please check data.py")
 
