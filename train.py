@@ -293,3 +293,4 @@ if __name__ == "__main__":
         type=f"decoupled_v2_{args.dataset}",
         cross_covariance=True,
     )
+    dkd_model.train("logs", "models")
