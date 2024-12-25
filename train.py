@@ -114,11 +114,11 @@ if __name__ == "__main__":
     if args.augment or args.bias_eval:
         if args.bias_eval == "stylized":
             teachertrain_ds, teachertest_ds = get_custom_data(
-                args.datasetpath, args.augment
+                args.datasetpath, args.augment, root=f"./data/{args.dataset}"
             )
         elif args.bias_eval == "noised":
             teachertrain_ds, teachertest_ds = get_noised_data(
-                args.dataset, noise_size=0.2
+                args.dataset, noise_size=0.2, root=f"./data/{args.dataset}"
             )
         elif args.bias_eval == "scrambled":
             teachertrain_ds, teachertest_ds = get_scrambled_data(
