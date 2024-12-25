@@ -3,11 +3,10 @@ from PIL import Image
 import torch
 import torchvision
 import torchvision.transforms.v2 as transforms
-from torch.utils.data import Dataset, DataLoader, Subset
+from torch.utils.data import Dataset, DataLoader
 from typing import Optional
 from torchvision import datasets
 from torch.utils.data import random_split
-from collections import defaultdict
 
 
 class AddNoiseToPatch:
@@ -80,32 +79,6 @@ class PatchScrambler:
         return self.scramble(image)
 
 
-def get_Food101_subset(root, TRAIN_TFMS, TEST_TFMS, img_per_class=600):
-
-    def filter_by_class(dataset, images_per_class):
-        class_counts = defaultdict(int)
-        selected_indices = []
-
-        for i, (image, label) in enumerate(dataset):
-            if class_counts[label] < images_per_class:
-                selected_indices.append(i)
-                class_counts[label] += 1
-
-        return Subset(dataset, selected_indices)
-
-    trainset = torchvision.datasets.Food101(
-        root + "/train", split="train", download=True, transform=TRAIN_TFMS
-    )
-    testset = torchvision.datasets.Food101(
-        root + "/noise-val", split="test", download=True, transform=TEST_TFMS
-    )
-
-    filtered_trainset = filter_by_class(trainset, img_per_class)
-    filtered_testset = filter_by_class(testset, img_per_class)
-
-    return filtered_trainset, filtered_testset
-
-
 def get_noised_data(name, noise_size, root="./data"):
 
     NOISE_TEST_TFMS = transforms.Compose(
@@ -130,15 +103,13 @@ def get_noised_data(name, noise_size, root="./data"):
         )
 
     if name == "Food101":
-        # trainset = torchvision.datasets.FOOD101(
-        #     root + "/train", train=True, download=True, transform=NOISE_TEST_TFMS
-        # )
+        trainset = torchvision.datasets.Food101(
+            root, split="train", download=True, transform=NOISE_TEST_TFMS
+        )
 
-        # testset = torchvision.datasets.FOOD101(
-        #     root + "/noise-val", train=False, download=True, transform=NOISE_TEST_TFMS
-        # )
-
-        trainset, testset = get_Food101_subset(root, NOISE_TEST_TFMS, NOISE_TEST_TFMS)
+        testset = torchvision.datasets.Food101(
+            root, split="test", download=True, transform=NOISE_TEST_TFMS
+        )
 
     elif name == "CIFAR-10":
         trainset = torchvision.datasets.CIFAR10(
@@ -206,15 +177,13 @@ def get_scrambled_data(name, patch_size, root):
         )
 
     elif name == "Food101":
-        # trainset = torchvision.datasets.FOOD101(
-        #     root + "/train", train=True, download=True, transform=SCRAMBLE_TFMS
-        # )
+        trainset = torchvision.datasets.Food101(
+            root + "/train", train=True, download=True, transform=SCRAMBLE_TFMS
+        )
 
-        # testset = torchvision.datasets.FOOD101(
-        #     root + "/scrambled-val", train=False, download=True, transform=SCRAMBLE_TFMS
-        # )
-
-        trainset, testset = get_Food101_subset(root, SCRAMBLE_TFMS, SCRAMBLE_TFMS)
+        testset = torchvision.datasets.Food101(
+            root + "/scrambled-val", train=False, download=True, transform=SCRAMBLE_TFMS
+        )
 
     else:
         raise ValueError(
@@ -323,7 +292,7 @@ def get_dataset(name, augment=False, root="./data"):
     elif name == "SVHN":
         return get_SVHN_dataset(root, TRAIN_TFMS, TEST_TFMS)
     elif name == "Food101":
-        return get_Food101_subset(root, TRAIN_TFMS, TEST_TFMS)
+        return get_Food101_dataset(root, TRAIN_TFMS, TEST_TFMS)
     else:
         raise ValueError("Received invalid dataset name - please check data.py")
 
