@@ -100,11 +100,11 @@ def get_noised_data(name, noise_size, root="./data"):
         )
         
     if name == 'Food101':
-        trainset = torchvision.datasets.FOOD101(
+        trainset = torchvision.datasets.Food101(
             root+'/train', train=True, download=True, transform=NOISE_TEST_TFMS
         )
 
-        testset = torchvision.datasets.FOOD101(
+        testset = torchvision.datasets.Food101(
             root+'/noise-val', train=False, download=True, transform=NOISE_TEST_TFMS
         )
     
@@ -176,7 +176,7 @@ def get_scrambled_data(name, patch_size, root):
         )
 
     elif name == 'Food101':
-        trainset = torchvision.datasets.FOOD101(
+        trainset = torchvision.datasets.Food101(
             root+'/train', train=True, download=True, transform=SCRAMBLE_TFMS
         )
 
