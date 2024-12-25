@@ -1,9 +1,218 @@
+import numpy as np
+from PIL import Image
+import torch
 import torchvision
 import torchvision.transforms.v2 as transforms
 from torch.utils.data import Dataset, DataLoader
 from typing import Optional
 from torchvision import datasets
 from torch.utils.data import random_split
+
+
+class AddNoiseToPatch:
+    def __init__(self, noise_level=0.1, patch_coords=(0, 0, 50, 50)):
+        self.noise_level = noise_level
+        self.patch_coords = patch_coords  # (x1, y1, x2, y2)
+
+    def __call__(self, img):
+        # Convert to numpy array
+        img_np = np.array(img)
+
+        # Extract patch coordinates
+        x1, y1, x2, y2 = self.patch_coords
+
+        # Generate random noise
+        noise = np.random.normal(
+            0, self.noise_level, img_np[y1:y2, x1:x2].shape
+        ).astype(np.uint8)
+
+        # Add noise to the patch
+        img_np[y1:y2, x1:x2] = np.clip(img_np[y1:y2, x1:x2] + noise, 0, 255)
+
+        # Convert back to PIL Image
+        return Image.fromarray(img_np)
+
+
+class PatchScrambler:
+    def __init__(self, patch_size=56):
+        self.patch_size = patch_size
+
+    def scramble(self, image):
+        c, h, w = image.shape
+
+        # Checl if image is divisible by patch_size
+        assert (
+            h % self.patch_size == 0 and w % self.patch_size == 0
+        ), "Image size must be divisible by patch size"
+
+        num_patches_h = h // self.patch_size
+        num_patches_w = w // self.patch_size
+
+        # Split image into patches
+        patches = image.unfold(1, self.patch_size, self.patch_size).unfold(
+            2, self.patch_size, self.patch_size
+        )
+
+        # Reshape into (num_patches_h * num_patches_w, C, patch_size, patch_size)
+        patches = patches.contiguous().view(c, -1, self.patch_size, self.patch_size)
+        patches = patches.permute(1, 0, 2, 3)
+
+        # Shuffle the patches
+        permuted_indices = torch.randperm(patches.size(0))
+        scrambled_patches = patches[permuted_indices]
+
+        # Reshape back into original image form
+        scrambled_image = (
+            scrambled_patches.permute(1, 0, 2, 3)
+            .contiguous()
+            .view(c, num_patches_h, num_patches_w, self.patch_size, self.patch_size)
+        )
+
+        # Reassemble the image from scrambled patches
+        scrambled_image = (
+            scrambled_image.permute(0, 1, 3, 2, 4).contiguous().view(c, h, w)
+        )
+
+        return scrambled_image
+
+    def __call__(self, image):
+        return self.scramble(image)
+
+
+def get_noised_data(
+    train_path: str, augment=False, split_ratio: float = 0.8, noise_size=100
+):
+    IMAGE_SIZE = 224
+    if augment:
+        TRAIN_TFMS = transforms.Compose(
+            [
+                transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    (0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)
+                ),
+            ]
+        )
+        TEST_TFMS = transforms.Compose(
+            [
+                transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    (0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)
+                ),
+            ]
+        )
+    else:
+        TRAIN_TFMS = transforms.Compose(
+            [
+                transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+                transforms.ToTensor(),
+            ]
+        )
+        TEST_TFMS = transforms.Compose(
+            [
+                transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+                transforms.ToTensor(),
+            ]
+        )
+
+    NOISE_TEST_TFMS = transforms.Compose(
+        [
+            transforms.Resize((224, 224)),
+            AddNoiseToPatch(
+                noise_level=25, patch_coords=(50, 50, 50 + noise_size, 50 + noise_size)
+            ),
+            transforms.ToTensor(),
+            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+        ]
+    )
+
+    # Load the dataset
+    full_dataset = datasets.ImageFolder(train_path, transform=TRAIN_TFMS)
+
+    # Calculate split sizes
+    total_size = len(full_dataset)
+    train_size = int(split_ratio * total_size)
+    val_size = total_size - train_size
+
+    # Split the dataset
+    train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+
+    # Apply transformations
+    train_dataset.dataset.transform = TRAIN_TFMS
+    val_dataset.dataset.transform = NOISE_TEST_TFMS
+
+    return train_dataset, val_dataset
+
+
+def get_scrambled_data(
+    train_path: str,
+    augment=False,
+    split_ratio: float = 0.8,
+    patch_size=56,
+):
+    IMAGE_SIZE = 224
+    if augment:
+        TRAIN_TFMS = transforms.Compose(
+            [
+                transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    (0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)
+                ),
+            ]
+        )
+        TEST_TFMS = transforms.Compose(
+            [
+                transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    (0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)
+                ),
+            ]
+        )
+    else:
+        TRAIN_TFMS = transforms.Compose(
+            [
+                transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+                transforms.ToTensor(),
+            ]
+        )
+        TEST_TFMS = transforms.Compose(
+            [
+                transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+                transforms.ToTensor(),
+            ]
+        )
+
+    SCRAMBLE_TFMS = transforms.Compose(
+        [
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            PatchScrambler(patch_size=patch_size),
+            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+        ]
+    )
+
+    # Load the dataset
+    full_dataset = datasets.ImageFolder(train_path, transform=TRAIN_TFMS)
+
+    # Calculate split sizes
+    total_size = len(full_dataset)
+    train_size = int(split_ratio * total_size)
+    val_size = total_size - train_size
+
+    # Split the dataset
+    train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+
+    # Apply transformations
+    train_dataset.dataset.transform = TRAIN_TFMS
+    val_dataset.dataset.transform = SCRAMBLE_TFMS
+
+    return train_dataset, val_dataset
+
 
 def get_custom_data(train_path: str, augment=False, split_ratio: float = 0.8):
     IMAGE_SIZE = 224
@@ -43,19 +252,19 @@ def get_custom_data(train_path: str, augment=False, split_ratio: float = 0.8):
 
     # Load the dataset
     full_dataset = datasets.ImageFolder(train_path, transform=TRAIN_TFMS)
-    
+
     # Calculate split sizes
     total_size = len(full_dataset)
     train_size = int(split_ratio * total_size)
     val_size = total_size - train_size
-    
+
     # Split the dataset
     train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
-    
+
     # Apply transformations
     train_dataset.dataset.transform = TRAIN_TFMS
     val_dataset.dataset.transform = TEST_TFMS
-    
+
     return train_dataset, val_dataset
 
 
