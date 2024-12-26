@@ -178,11 +178,11 @@ def get_scrambled_data(name, patch_size, root):
 
     elif name == "Food101":
         trainset = torchvision.datasets.Food101(
-            root + "/train", train=True, download=True, transform=SCRAMBLE_TFMS
+            root, train=True, download=True, transform=SCRAMBLE_TFMS
         )
 
         testset = torchvision.datasets.Food101(
-            root + "/scrambled-val", train=False, download=True, transform=SCRAMBLE_TFMS
+            root, train=False, download=True, transform=SCRAMBLE_TFMS
         )
 
     else:
