@@ -47,38 +47,33 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, gamma, phi, ep
         target_class_gradients = torch.autograd.grad(tckd_loss, logits_student, create_graph=True)[0]
         non_target_class_gradients = torch.autograd.grad(nckd_loss, logits_student, create_graph=True)[0]
 
-        # normalize the gradients
-        if cross_covariance:
-            # compute the cross correlation between target and non-target class gradients
-            non_target_class_gradients_mean = non_target_class_gradients.mean()
-            target_class_gradients_mean = target_class_gradients.mean()
+        # Fetch the gradient means 
+        non_target_class_gradients_mean = non_target_class_gradients.mean()
+        target_class_gradients_mean = target_class_gradients.mean()
 
-            non_target_class_gradients_centered = non_target_class_gradients - non_target_class_gradients_mean
-            target_class_gradients_centered = target_class_gradients - target_class_gradients_mean
-            
-            correlation = (target_class_gradients_centered @ non_target_class_gradients_centered.T).sum()
-            target_class_self_correlation = (target_class_gradients_centered @ target_class_gradients_centered.T).sum()
-            non_target_class_self_correlation = (non_target_class_gradients_centered @ non_target_class_gradients_centered.T).sum()
+        # Center the gradients
+        non_target_class_gradients_centered = non_target_class_gradients - non_target_class_gradients_mean
+        target_class_gradients_centered = target_class_gradients - target_class_gradients_mean
+        
+        # Compute the covariance using an outter product --> Shape is [batch, batch] Pre sum. Post sum, it is a scalar. So sum of all covariances across all examples.
+        covariance = (target_class_gradients_centered @ non_target_class_gradients_centered.T).sum()
+        target_class_self_covariance = (target_class_gradients_centered @ target_class_gradients_centered.T).sum()
+        non_target_class_self_covariance = (non_target_class_gradients_centered @ non_target_class_gradients_centered.T).sum()
 
-            # Normalize correlations
-            correlation = correlation / torch.sqrt(target_class_self_correlation * non_target_class_self_correlation)
-            target_class_self_correlation = target_class_self_correlation / target_class_self_correlation  
-            non_target_class_self_correlation = non_target_class_self_correlation / non_target_class_self_correlation  
-        else:
-            target_class_gradients_mean = target_class_gradients.mean()
-            non_target_class_gradients_mean = non_target_class_gradients.mean()
-
+        # Normalize the collective covariance sum to get a covariance coefficient representative of the entire batch's covariance.
+        covariance = covariance / torch.sqrt(target_class_self_covariance * non_target_class_self_covariance)
+        
         
     alignment_loss = F.mse_loss(target_class_gradients, non_target_class_gradients)
         
     if alignment:
-        total_loss = alpha * tckd_loss + beta * nckd_loss - gamma * target_class_gradients_mean - phi * non_target_class_gradients_mean - epsilon * alignment_loss
+        total_loss = alpha * tckd_loss + beta * nckd_loss + gamma * target_class_gradients_mean + phi * non_target_class_gradients_mean + epsilon * alignment_loss
     elif cross_covariance:
-        total_loss = alpha * tckd_loss + beta * nckd_loss - gamma*(1-target_class_self_correlation)**2 - phi*(1-non_target_class_self_correlation)**2 - delta*(correlation)**2 - epsilon * alignment_loss
+        total_loss = alpha * tckd_loss + beta * nckd_loss - delta*(covariance)**2 + epsilon * alignment_loss
     else:
         total_loss = alpha * tckd_loss + beta * nckd_loss
 
-    return total_loss, tckd_loss, nckd_loss, target_student_norm, non_target_student_norm, alignment_loss.item()
+    return total_loss, tckd_loss, nckd_loss, target_student_norm, non_target_student_norm, alignment_loss.item(), covariance
 
 
 def _get_gt_mask(logits, target):
@@ -121,14 +116,15 @@ class DKD(nn.Module):
         with torch.no_grad():
             logits_teacher = self.teacher(image)
 
-        decoupled_loss, tckd_loss, nckd_loss, target_norm, nontarget_norm, grad_sim = dkd_loss(logits_student, logits_teacher, target, self.alpha, self.beta, self.gamma, self.phi, self.epsilon, self.delta, self.temperature, self.alignment, self.cross_covariance)
+        decoupled_loss, tckd_loss, nckd_loss, target_norm, nontarget_norm, grad_sim, covariance = dkd_loss(logits_student, logits_teacher, target, self.alpha, self.beta, self.gamma, self.phi, self.epsilon, self.delta, self.temperature, self.alignment, self.cross_covariance)
         losses_dict = {
             "loss_kd": decoupled_loss,
             "loss_tckd": tckd_loss,
             "loss_nckd": nckd_loss,
             "target_norm": target_norm,
             "nontarget_norm": nontarget_norm,
-            "gradient_simscores": grad_sim
+            "gradient_simscores": grad_sim,
+            "covariance": covariance
         }
         return logits_student, losses_dict
 

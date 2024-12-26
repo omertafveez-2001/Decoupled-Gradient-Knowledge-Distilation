@@ -40,7 +40,7 @@ if __name__ == "__main__":
         "--hyperparameters",
         type=float,
         nargs="+",
-        default=[0.5, 0.5, 1, 7, 2, 0.6, 3],
+        default=[0.5, 0.5, 1, 7, 2, 0.15, 3],
         help="Hyperparameters for distillation loss [alpha, beta, gamma, phi, epsilon, delta, temperature]",
     )
     parser.add_argument(
@@ -265,9 +265,7 @@ if __name__ == "__main__":
     dkd_model.train("logs", "models")
 
     # Decoupled Knowledge Distillation with similarity
-    print(
-        "Distilling knowledge using DKD with alignment"
-    )
+    print("Distilling knowledge using DKD with alignment")
     dkd_model = KnowledgeDistillation(
         teachermodel,
         decoupled_sim,
