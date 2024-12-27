@@ -40,7 +40,7 @@ if __name__ == "__main__":
         "--hyperparameters",
         type=float,
         nargs="+",
-        default=[0.5, 0.5, 1, 7, 2, 0.15, 3],
+        default=[0.5, 0.5, 1, 7, 2, 0.6, 3],
         help="Hyperparameters for distillation loss [alpha, beta, gamma, phi, epsilon, delta, temperature]",
     )
     parser.add_argument(
@@ -93,6 +93,13 @@ if __name__ == "__main__":
         default=None,
         help="Custom Dataset for distillation and training",
     )
+    parser.add_argument(
+        "--experiment",
+        type=str,
+        default=None,
+        help="Choose from logit_matching, decoupled, decoupled_v1, decoupled_v2",
+    )
+
 
     args = parser.parse_args()
     set_seed()
@@ -236,59 +243,66 @@ if __name__ == "__main__":
         decoupled_sim2.parameters(), lr=args.learningrates[1]
     )
 
+
     # Logit Matching
-    print("Distilling knowledge using Logit Matching...")
-    logit_model = KnowledgeDistillation(
-        teachermodel,
-        logitmatching,
-        teachertrain_loader,
-        teachertest_loader,
-        logitmatchingoptimizer,
-        device,
-        args,
-        type=f"logit_matching",
-    )
-    logit_model.train("logs", "models")
-
-    # Decoupled Knowledge Distillation
-    print("Distilling knowledge using DKD...")
-    dkd_model = KnowledgeDistillation(
-        teachermodel,
-        decoupledkd,
-        teachertrain_loader,
-        teachertest_loader,
-        decoupledkdoptimizer,
-        device,
-        args,
-        type=f"decoupled_{args.dataset}",
-    )
-    dkd_model.train("logs", "models")
-
-    # Decoupled Knowledge Distillation with similarity
-    print("Distilling knowledge using DKD with alignment")
-    dkd_model = KnowledgeDistillation(
-        teachermodel,
-        decoupled_sim,
-        teachertrain_loader,
-        teachertest_loader,
-        decoupled_sim_optimizer,
-        device,
-        args,
-        type=f"decoupled_v1_{args.dataset}",
-        alignment=True,
-    )
-    dkd_model.train("logs", "models")
-
-    print("Distilling knowledge using DKD with alignment and cross covariance")
-    dkd_model = KnowledgeDistillation(
-        teachermodel,
-        decoupled_sim2,
-        teachertrain_loader,
-        teachertest_loader,
-        decoupled_sim2_optimizer,
-        device,
-        args,
-        type=f"decoupled_v2_{args.dataset}",
-        cross_covariance=True,
-    )
-    dkd_model.train("logs", "models")
+    if args.experiment == 'logit_matching':
+        print("Distilling knowledge using Logit Matching...")
+        logit_model = KnowledgeDistillation(
+            teachermodel,
+            logitmatching,
+            teachertrain_loader,
+            teachertest_loader,
+            logitmatchingoptimizer,
+            device,
+            args,
+            type=f"logit_matching",
+        )
+        logit_model.train("logs", "models")
+    
+    elif args.experiment == 'decoupled':
+    # Decoupled Knowledge Distillation  
+        print("Distilling knowledge using DKD...")
+        dkd_model = KnowledgeDistillation(
+            teachermodel,
+            decoupledkd,
+            teachertrain_loader,
+            teachertest_loader,
+            decoupledkdoptimizer,
+            device,
+            args,
+            type=f"decoupled_{args.dataset}",
+        )
+        dkd_model.train("logs", "models")
+    
+    elif args.experiment == 'decoupled_v1':
+        # Decoupled Knowledge Distillation with similarity
+        print("Distilling knowledge using DKD with alignment")
+        dkd_model = KnowledgeDistillation(
+            teachermodel,
+            decoupled_sim,
+            teachertrain_loader,
+            teachertest_loader,
+            decoupled_sim_optimizer,
+            device,
+            args,
+            type=f"decoupled_v1_{args.dataset}",
+            alignment=True,
+        )
+        dkd_model.train("logs", "models")
+    
+    elif args.experiment == 'decoupled_v2':
+        print("Distilling knowledge using DKD with alignment and cross covariance")
+        dkd_model = KnowledgeDistillation(
+            teachermodel,
+            decoupled_sim2,
+            teachertrain_loader,
+            teachertest_loader,
+            decoupled_sim2_optimizer,
+            device,
+            args,
+            type=f"decoupled_v2_{args.dataset}",
+            cross_covariance=True,
+        )
+        dkd_model.train("logs", "models")
+    else:
+        raise ValueError("Invalid experiment. Choose from logit_matching, decoupled, decoupled_v1, decoupled_v2.")

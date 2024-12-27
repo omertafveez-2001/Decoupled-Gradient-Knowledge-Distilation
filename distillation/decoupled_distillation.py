@@ -67,9 +67,9 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, gamma, phi, ep
     alignment_loss = F.mse_loss(target_class_gradients, non_target_class_gradients)
         
     if alignment:
-        total_loss = alpha * tckd_loss + beta * nckd_loss + gamma * target_class_gradients_mean + phi * non_target_class_gradients_mean + epsilon * alignment_loss
+        total_loss = alpha * tckd_loss + beta * nckd_loss - gamma * target_class_gradients_mean - phi * non_target_class_gradients_mean - epsilon * alignment_loss
     elif cross_covariance:
-        total_loss = alpha * tckd_loss + beta * nckd_loss - delta*(covariance)**2 + epsilon * alignment_loss
+        total_loss = alpha * tckd_loss + beta * nckd_loss - delta*(covariance)**2 - epsilon * alignment_loss
     else:
         total_loss = alpha * tckd_loss + beta * nckd_loss
 
