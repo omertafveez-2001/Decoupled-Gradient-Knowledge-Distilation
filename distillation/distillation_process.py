@@ -117,10 +117,6 @@ class KnowledgeDistillation:
         correct_predictions = 0.0
         total_predictions = 0.0 
         grad_similarities = []
-        tckd_grad_norms = []
-        nckd_grad_norms = []
-        tckd_grad_avgs = []
-        nckd_grad_avgs = []
         target_norms = []
         nontarget_norms = []
         
@@ -132,19 +128,8 @@ class KnowledgeDistillation:
                 logits_student, losses = self.DKD.forward_train(inputs, labels)
                 loss = losses["loss_kd"]
 
-                tckd_grad = torch.autograd.grad(losses["loss_tckd"], logits_student, retain_graph=True)[0]
-                nckd_grad = torch.autograd.grad(losses["loss_nckd"], logits_student, retain_graph=True)[0] 
 
-                similarity = F.cosine_similarity(tckd_grad.view(tckd_grad.size(0), -1), 
-                                          nckd_grad.view(nckd_grad.size(0), -1)).mean().item()
-
-                # L2 Norm
-                tckd_grad_norm = tckd_grad.norm(2).item()
-                nckd_grad_norm = nckd_grad.norm(2).item()
-
-                grad_similarities.append(similarity)
-                tckd_grad_norms.append(tckd_grad_norm)
-                nckd_grad_norms.append(nckd_grad_norm)
+                grad_similarities.append(losses["gradient_simscores"])
                 target_norms.append(losses["target_norm"])
                 nontarget_norms.append(losses["nontarget_norm"])
                 running_covariance += losses["covariance"]
@@ -172,14 +157,12 @@ class KnowledgeDistillation:
 
         if self.type.startswith("decoupled"):
             avg_grad_similarity = sum(grad_similarities) / len(grad_similarities)
-            tckd_grad_norms = sum(tckd_grad_norms) / len(tckd_grad_norms)
-            nckd_grad_norms = sum(nckd_grad_norms)/ len(nckd_grad_norms)
             target_norms = sum(target_norms)/ len(target_norms)
             nontarget_norms = sum(nontarget_norms)/ len(nontarget_norms)
             running_covariance = running_loss / len(self.train_loader)
             
             
-            return running_loss, train_accuracy, avg_grad_similarity, tckd_grad_norms, nckd_grad_norms, target_norms, nontarget_norms, running_covariance
+            return running_loss, train_accuracy, avg_grad_similarity, target_norms, nontarget_norms, running_covariance
         
         return running_loss, train_accuracy
 
@@ -221,24 +204,23 @@ class KnowledgeDistillation:
         
         with open(log_path, 'w') as f:
             writer = csv.writer(f)
-
             if self.type.startswith("decoupled"):
-                writer.writerow(["epochs", "train_loss", "train_acc", "test_acc", "avg_grad_similarity", "tckd_grad_norm", "nckd_grad_norm", "target_norm", "nontarget_norm", "covariance"])
+                writer.writerow(["epochs", "train_loss", "train_acc", "test_acc", "avg_grad_similarity", "target_norm", "nontarget_norm", "covariance"])
             else:
                 writer.writerow(["epochs", "train_loss", "train_acc", "test_acc"])
 
             for epoch in tqdm(range(self.epochs), desc="KD Epochs"):
                 if self.type.startswith("decoupled"):
-                    train_loss, train_accuracy, avg_grad_sim, tckd_norm, nckd_norm, targetnorms, nontargetnorms, covariance = self.train_kd_step()
+                    train_loss, train_accuracy, avg_grad_sim, targetnorms, nontargetnorms, covariance = self.train_kd_step()
                 else:
                     train_loss, train_accuracy = self.train_kd_step()
                 test_accuracy = self.test()
                 
                 print(f"Epoch {epoch+1}/{self.epochs}, Loss: {train_loss:.4f}, "
-                      f"Train Accuracy: {train_accuracy:.2f}%, Test Accuracy: {test_accuracy:.2f}%")
+                      f"Train Accuracy: {train_accuracy:.2f}%, Test Accuracy: {test_accuracy:.2f}%, Avg Sim: {avg_grad_sim:.4f}")
 
                 if self.type.startswith("decoupled"):
-                    writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy, avg_grad_sim, tckd_norm, nckd_norm, targetnorms, nontargetnorms, covariance])
+                    writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy, avg_grad_sim, targetnorms, nontargetnorms, covariance])
                 else:
                     writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy])
         torch.save(self.student.state_dict(), model_path)
