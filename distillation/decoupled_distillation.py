@@ -83,7 +83,7 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, gamma, phi, ep
     else:
         total_loss = alpha * tckd_loss + beta * nckd_loss
 
-    return total_loss, tckd_loss, nckd_loss, target_student_norm, non_target_student_norm, target_grad_magnitude, non_target_grad_magnitude, cosine_similarity, covariance
+    return total_loss, tckd_loss, nckd_loss, target_student_norm, non_target_student_norm, target_grad_magnitude.item(), non_target_grad_magnitude.item(), cosine_similarity.item(), covariance
 
 
 def _get_gt_mask(logits, target):
@@ -126,7 +126,7 @@ class DKD(nn.Module):
         with torch.no_grad():
             logits_teacher = self.teacher(image)
 
-        decoupled_loss, tckd_loss, nckd_loss, target_norm, nontarget_norm, grad_sim, target_grad_mag, non_target_grad, covariance = dkd_loss(logits_student, logits_teacher, target, self.alpha, self.beta, self.gamma, self.phi, self.epsilon, self.delta, self.temperature, self.alignment, self.cross_covariance)
+        decoupled_loss, tckd_loss, nckd_loss, target_norm, nontarget_norm, target_grad_mag, non_target_grad, grad_sim, covariance = dkd_loss(logits_student, logits_teacher, target, self.alpha, self.beta, self.gamma, self.phi, self.epsilon, self.delta, self.temperature, self.alignment, self.cross_covariance)
         losses_dict = {
             "loss_kd": decoupled_loss,
             "loss_tckd": tckd_loss,
