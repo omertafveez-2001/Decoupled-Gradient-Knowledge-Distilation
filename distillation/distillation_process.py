@@ -119,6 +119,8 @@ class KnowledgeDistillation:
         grad_similarities = []
         target_norms = []
         nontarget_norms = []
+        target_grad_mags = []
+        non_target_grad_mags = []
         
         for inputs, labels in self.train_loader:
             inputs, labels = inputs.to(self.device), labels.to(self.device)
@@ -132,6 +134,8 @@ class KnowledgeDistillation:
                 grad_similarities.append(losses["gradient_simscores"])
                 target_norms.append(losses["target_norm"])
                 nontarget_norms.append(losses["nontarget_norm"])
+                target_grad_mags.append(losses["target_grad_magnitude"])
+                non_target_grad_mags.append(losses["non_target_grad_magnitude"])
                 running_covariance += losses["covariance"]
 
             elif self.type=="logit_matching":
@@ -160,9 +164,10 @@ class KnowledgeDistillation:
             target_norms = sum(target_norms)/ len(target_norms)
             nontarget_norms = sum(nontarget_norms)/ len(nontarget_norms)
             running_covariance = running_loss / len(self.train_loader)
+            target_grad_mags = sum(target_grad_mags) / len(target_grad_mags)
+            non_target_grad_mags = sum(non_target_grad_mags) / len(non_target_grad_mags)
             
-            
-            return running_loss, train_accuracy, avg_grad_similarity, target_norms, nontarget_norms, running_covariance
+            return running_loss, train_accuracy, avg_grad_similarity, target_norms, nontarget_norms, target_grad_mags, non_target_grad_mags, running_covariance
         
         return running_loss, train_accuracy
 
@@ -205,22 +210,22 @@ class KnowledgeDistillation:
         with open(log_path, 'w') as f:
             writer = csv.writer(f)
             if self.type.startswith("decoupled"):
-                writer.writerow(["epochs", "train_loss", "train_acc", "test_acc", "avg_grad_similarity", "target_norm", "nontarget_norm", "covariance"])
+                writer.writerow(["epochs", "train_loss", "train_acc", "test_acc", "avg_grad_similarity", "target_norm", "nontarget_norm", "target_gradmag", "nontarget_gradmag", "covariance"])
             else:
                 writer.writerow(["epochs", "train_loss", "train_acc", "test_acc"])
 
             for epoch in tqdm(range(self.epochs), desc="KD Epochs"):
                 if self.type.startswith("decoupled"):
-                    train_loss, train_accuracy, avg_grad_sim, targetnorms, nontargetnorms, covariance = self.train_kd_step()
+                    train_loss, train_accuracy, avg_grad_sim, targetnorms, nontargetnorms, target_gradmag, nontarget_gradmag, covariance = self.train_kd_step()
                 else:
                     train_loss, train_accuracy = self.train_kd_step()
                 test_accuracy = self.test()
                 
                 print(f"Epoch {epoch+1}/{self.epochs}, Loss: {train_loss:.4f}, "
-                      f"Train Accuracy: {train_accuracy:.2f}%, Test Accuracy: {test_accuracy:.2f}%, Avg Sim: {avg_grad_sim:.4f}")
+                      f"Train Accuracy: {train_accuracy:.2f}%, Test Accuracy: {test_accuracy:.2f}%, Avg Sim: {avg_grad_sim:.4f}, target_gradmag: {target_gradmag:.4f}, nontarget_gradmag: {nontarget_gradmag:.4f}")
 
                 if self.type.startswith("decoupled"):
-                    writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy, avg_grad_sim, targetnorms, nontargetnorms, covariance])
+                    writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy, avg_grad_sim, targetnorms, nontargetnorms, target_gradmag, nontarget_gradmag, covariance])
                 else:
                     writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy])
         torch.save(self.student.state_dict(), model_path)
