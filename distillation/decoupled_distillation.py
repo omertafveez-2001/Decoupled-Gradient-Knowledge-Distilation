@@ -63,7 +63,12 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, gamma, phi, ep
         # Normalize the collective covariance sum to get a covariance coefficient representative of the entire batch's covariance.
         covariance = covariance / torch.sqrt(target_class_self_covariance * non_target_class_self_covariance)
         
-        
+    cosine_similarity = F.cosine_similarity(
+    target_class_gradients.flatten(start_dim=1),  # Flatten across classes
+    non_target_class_gradients.flatten(start_dim=1),  # Flatten across classes
+    dim=1  # Compute similarity across the batch dimension
+    ).mean()
+    
     alignment_loss = F.mse_loss(target_class_gradients, non_target_class_gradients)
         
     if alignment:
@@ -73,7 +78,7 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, gamma, phi, ep
     else:
         total_loss = alpha * tckd_loss + beta * nckd_loss
 
-    return total_loss, tckd_loss, nckd_loss, target_student_norm, non_target_student_norm, alignment_loss.item(), covariance
+    return total_loss, tckd_loss, nckd_loss, target_student_norm, non_target_student_norm, cosine_similarity, covariance
 
 
 def _get_gt_mask(logits, target):
