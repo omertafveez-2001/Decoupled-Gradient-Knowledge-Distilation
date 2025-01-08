@@ -222,7 +222,7 @@ class KnowledgeDistillation:
                 test_accuracy = self.test()
                 
                 print(f"Epoch {epoch+1}/{self.epochs}, Loss: {train_loss:.4f}, "
-                      f"Train Accuracy: {train_accuracy:.2f}%, Test Accuracy: {test_accuracy:.2f}%, Avg Sim: {avg_grad_sim:.4f}, target_gradmag: {target_gradmag:.4f}, nontarget_gradmag: {nontarget_gradmag:.4f}")
+                      f"Train Accuracy: {train_accuracy:.2f}%, Test Accuracy: {test_accuracy:.2f}%")
 
                 if self.type.startswith("decoupled"):
                     writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy, avg_grad_sim, targetnorms, nontargetnorms, target_gradmag, nontarget_gradmag, covariance])
