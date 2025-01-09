@@ -286,7 +286,7 @@ if __name__ == "__main__":
             device,
             args,
             type=f"decoupled_v1_{args.dataset}",
-            alignment=True,
+            v1=True,
         )
         dkd_model.train("logs", "models")
     
@@ -301,7 +301,7 @@ if __name__ == "__main__":
             device,
             args,
             type=f"decoupled_v2_{args.dataset}",
-            cross_covariance=True,
+            v2=True,
         )
         dkd_model.train("logs", "models")
     else:
