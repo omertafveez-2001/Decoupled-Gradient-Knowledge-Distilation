@@ -1,84 +1,52 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 
-def dkd_loss(logits_student, logits_teacher, target, alpha, beta, gamma, phi, epsilon, delta, temperature, alignment=False, cross_covariance=False):
-    # target class logits norms
-    target_student_norm = torch.norm(logits_student.gather(1, target.unsqueeze(1))).item()
-    
-    # Non-target class logits norms (excluding target class)
-    non_target_mask = torch.ones_like(logits_student, dtype=torch.bool)
-    non_target_mask.scatter_(1, target.unsqueeze(1), 0)
-    non_target_student_norm = torch.norm(logits_student.masked_select(non_target_mask)).item()
-    
+
+def dkd_loss(logits_student, logits_teacher, target, alpha, beta, gamma, temperature):
     gt_mask = _get_gt_mask(logits_student, target)
     other_mask = _get_other_mask(logits_student, target)
-    
+
     pred_student = F.softmax(logits_student / temperature, dim=1)
     pred_teacher = F.softmax(logits_teacher / temperature, dim=1)
-    
-    pred_student = cat_mask(pred_student, gt_mask, other_mask)
-    pred_teacher = cat_mask(pred_teacher, gt_mask, other_mask)
-    
-    log_pred_student = torch.log(pred_student)
-    soft_criterion = nn.KLDivLoss(reduction="sum")
-    
-    tckd_loss = (
-        soft_criterion(log_pred_student, pred_teacher)
-        * (temperature**2)
-        / target.shape[0]
-    )
-    
-    pred_teacher_part2 = F.softmax(
+
+    pred_student_tckd = cat_mask(pred_student, gt_mask, other_mask)
+    pred_teacher_tckd = cat_mask(pred_teacher, gt_mask, other_mask)
+
+    # log_pred_student = torch.log(pred_student + 1e-5)
+    # tckd_loss = (
+    #     F.kl_div(log_pred_student, pred_teacher, reduction="sum") * (temperature**2)
+    #     / target.shape[0]
+    # )
+
+    # Compute Wasserstein distance for TCKD
+    student_cdf_tckd = torch.cumsum(pred_student_tckd, dim=1)
+    teacher_cdf_tckd = torch.cumsum(pred_teacher_tckd, dim=1)
+    tckd_loss = torch.mean(torch.norm(student_cdf_tckd - teacher_cdf_tckd, p=1, dim=1))
+
+    pred_teacher_nckd = F.softmax(
         logits_teacher / temperature - 1000.0 * gt_mask, dim=1
     )
-    log_pred_student_part2 = F.log_softmax(
+    pred_student_nckd = F.softmax(
         logits_student / temperature - 1000.0 * gt_mask, dim=1
     )
-    
-    nckd_loss = (
-        soft_criterion(log_pred_student_part2, pred_teacher_part2)
-        * (temperature**2)
-        / target.shape[0]
-    )
-    
-    with torch.enable_grad():
-        # compute Partial derivative of the loss w.r.t the logits
-        target_class_gradients = torch.autograd.grad(tckd_loss, logits_student, create_graph=True)[0]
-        non_target_class_gradients = torch.autograd.grad(nckd_loss, logits_student, create_graph=True)[0]
 
-        # normalize the gradients
-        if cross_covariance:
-            # compute the cross correlation between target and non-target class gradients
-            non_target_class_gradients_mean = non_target_class_gradients.mean()
-            target_class_gradients_mean = target_class_gradients.mean()
+    # nckd_loss = (
+    #     F.kl_div(log_pred_student_part2, pred_teacher_part2, reduction="sum") * (temperature**2)
+    #     / target.shape[0]
+    # )
 
-            non_target_class_gradients_centered = non_target_class_gradients - non_target_class_gradients_mean
-            target_class_gradients_centered = target_class_gradients - target_class_gradients_mean
-            
-            correlation = (target_class_gradients_centered @ non_target_class_gradients_centered.T).sum()
-            target_class_self_correlation = (target_class_gradients_centered @ target_class_gradients_centered.T).sum()
-            non_target_class_self_correlation = (non_target_class_gradients_centered @ non_target_class_gradients_centered.T).sum()
+    # Compute Wasserstein distance for NCKD
+    student_cdf_nckd = torch.cumsum(pred_student_nckd, dim=1)
+    teacher_cdf_nckd = torch.cumsum(pred_teacher_nckd, dim=1)
+    nckd_loss = torch.mean(torch.norm(student_cdf_nckd - teacher_cdf_nckd, p=1, dim=1))
 
-            # Normalize correlations
-            correlation = correlation / torch.sqrt(target_class_self_correlation * non_target_class_self_correlation)
-            target_class_self_correlation = target_class_self_correlation / target_class_self_correlation  
-            non_target_class_self_correlation = non_target_class_self_correlation / non_target_class_self_correlation  
-        else:
-            target_class_gradients_mean = target_class_gradients.mean()
-            non_target_class_gradients_mean = non_target_class_gradients.mean()
+    loss = alpha * tckd_loss + beta * nckd_loss
 
-        
-    alignment_loss = F.mse_loss(target_class_gradients, non_target_class_gradients)
-        
-    if alignment:
-        total_loss = alpha * tckd_loss + beta * nckd_loss - gamma * target_class_gradients_mean - phi * non_target_class_gradients_mean - epsilon * alignment_loss
-    elif cross_covariance:
-        total_loss = alpha * tckd_loss + beta * nckd_loss - gamma*(1-target_class_self_correlation)**2 - phi*(1-non_target_class_self_correlation)**2 - delta*(correlation)**2 - epsilon * alignment_loss
-    else:
-        total_loss = alpha * tckd_loss + beta * nckd_loss
+    ce_loss = gamma * F.cross_entropy(logits_student, target)
 
-    return total_loss, tckd_loss, nckd_loss, target_student_norm, non_target_student_norm, alignment_loss.item()
+    return loss, tckd_loss, nckd_loss, ce_loss
 
 
 def _get_gt_mask(logits, target):
@@ -99,6 +67,7 @@ def cat_mask(t, mask1, mask2):
     rt = torch.cat([t1, t2], dim=1)
     return rt
 
+
 class DKD(nn.Module):
     def __init__(self, student, teacher, cfg, alignment=False, cross_covariance=False):
         super(DKD, self).__init__()
@@ -113,24 +82,31 @@ class DKD(nn.Module):
         self.teacher = teacher
         self.epochs = cfg.epochs[1]
 
-        self.alignment=alignment
-        self.cross_covariance=cross_covariance
-        
+        self.alignment = alignment
+        self.cross_covariance = cross_covariance
+
     def forward_train(self, image, target, **kwargs):
         logits_student = self.student(image)
         with torch.no_grad():
             logits_teacher = self.teacher(image)
 
-        decoupled_loss, tckd_loss, nckd_loss, target_norm, nontarget_norm, grad_sim = dkd_loss(logits_student, logits_teacher, target, self.alpha, self.beta, self.gamma, self.phi, self.epsilon, self.delta, self.temperature, self.alignment, self.cross_covariance)
+        decoupled_loss, tckd_loss, nckd_loss, ce_loss = dkd_loss(
+            logits_student,
+            logits_teacher,
+            target,
+            self.alpha,
+            self.beta,
+            self.gamma,
+            self.temperature,
+        )
         losses_dict = {
             "loss_kd": decoupled_loss,
+            "loss_ce": ce_loss,
             "loss_tckd": tckd_loss,
             "loss_nckd": nckd_loss,
-            "target_norm": target_norm,
-            "nontarget_norm": nontarget_norm,
-            "gradient_simscores": grad_sim
         }
         return logits_student, losses_dict
+
 
 class LogitMatching(nn.Module):
     def __init__(self, student, teacher, cfg):
@@ -141,19 +117,23 @@ class LogitMatching(nn.Module):
         self.student = student
         self.teacher = teacher
         self.epochs = cfg.epochs[1]
-    
+
     def forward_train(self, image, target, **kwargs):
         student_logits = self.student(image)
         with torch.no_grad():
             teacher_logits = self.teacher(image)
-        
-        soft_criterion = nn.KLDivLoss(reduction='batchmean')
-        hard_criterion = nn.CrossEntropyLoss()
-        
-        teacher_probs = nn.functional.softmax(teacher_logits/self.temperature, dim=-1)
-        student_probs = nn.functional.log_softmax(student_logits/self.temperature, dim=-1)
 
-        distillation_loss = soft_criterion(student_probs, teacher_probs)*(self.temperature**2)
+        soft_criterion = nn.KLDivLoss(reduction="batchmean")
+        hard_criterion = nn.CrossEntropyLoss()
+
+        teacher_probs = nn.functional.softmax(teacher_logits / self.temperature, dim=-1)
+        student_probs = nn.functional.log_softmax(
+            student_logits / self.temperature, dim=-1
+        )
+
+        distillation_loss = soft_criterion(student_probs, teacher_probs) * (
+            self.temperature**2
+        )
         hard_loss = hard_criterion(student_logits, target)
         loss = self.beta * distillation_loss + self.alpha * hard_loss
 
