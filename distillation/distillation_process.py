@@ -136,13 +136,13 @@ class KnowledgeDistillation:
             tuple: Average loss and accuracy for the training step.
         """
         running_loss = 0.0
+        running_ce_loss = 0.0
+        running_dkd_loss = 0.0
         correct_predictions = 0.0
         total_predictions = 0.0
         grad_similarities = []
         tckd_grad_norms = []
         nckd_grad_norms = []
-        # target_norms = []
-        # nontarget_norms = []
 
         for inputs, labels in self.train_loader:
             inputs, labels = inputs.to(self.device), labels.to(self.device)
@@ -150,7 +150,7 @@ class KnowledgeDistillation:
 
             if self.type.startswith("decoupled"):
                 logits_student, losses = self.DKD.forward_train(inputs, labels)
-                loss = losses["loss_kd"]
+                loss = losses["loss_t"]
 
                 tckd_grad = torch.autograd.grad(
                     losses["loss_tckd"], logits_student, retain_graph=True
@@ -175,8 +175,6 @@ class KnowledgeDistillation:
                 grad_similarities.append(similarity)
                 tckd_grad_norms.append(tckd_grad_norm)
                 nckd_grad_norms.append(nckd_grad_norm)
-                # target_norms.append(losses["target_norm"])
-                # nontarget_norms.append(losses["nontarget_norm"])
 
             elif self.type == "logit_matching":
                 logits_student, loss = self.LogitMatching.forward_train(inputs, labels)
@@ -191,6 +189,8 @@ class KnowledgeDistillation:
             self.optimizer.step()
 
             running_loss += loss.item()
+            running_ce_loss += losses["loss_ce"].item()
+            running_dkd_loss += losses["loss_kd"].item()
 
             _, predicted = torch.max(logits_student, 1)
             correct_predictions += (predicted == labels).sum().item()
@@ -203,17 +203,15 @@ class KnowledgeDistillation:
             avg_grad_similarity = sum(grad_similarities) / len(grad_similarities)
             tckd_grad_norms = sum(tckd_grad_norms) / len(tckd_grad_norms)
             nckd_grad_norms = sum(nckd_grad_norms) / len(nckd_grad_norms)
-            # target_norms = sum(target_norms) / len(target_norms)
-            # nontarget_norms = sum(nontarget_norms) / len(nontarget_norms)
 
             return (
                 running_loss,
+                running_ce_loss,
+                running_dkd_loss,
                 train_accuracy,
                 avg_grad_similarity,
                 tckd_grad_norms,
                 nckd_grad_norms,
-                # target_norms,
-                # nontarget_norms,
             )
 
         return running_loss, train_accuracy
@@ -260,13 +258,13 @@ class KnowledgeDistillation:
                     [
                         "epochs",
                         "train_loss",
+                        "train_ce_loss",
+                        "train_dkd_loss",
                         "train_acc",
                         "test_acc",
                         "avg_grad_similarity",
                         "tckd_grad_norm",
                         "nckd_grad_norm",
-                        # "target_norm",
-                        # "nontarget_norm",
                     ]
                 )
             else:
@@ -276,12 +274,12 @@ class KnowledgeDistillation:
                 if self.type.startswith("decoupled"):
                     (
                         train_loss,
+                        train_ce_loss,
+                        train_dkd_loss,
                         train_accuracy,
                         avg_grad_sim,
                         tckd_norm,
                         nckd_norm,
-                        # targetnorms,
-                        # nontargetnorms,
                     ) = self.train_kd_step()
                 else:
                     train_loss, train_accuracy = self.train_kd_step()
@@ -297,13 +295,13 @@ class KnowledgeDistillation:
                         [
                             epoch + 1,
                             train_loss,
+                            train_ce_loss,
+                            train_dkd_loss,
                             train_accuracy,
                             test_accuracy,
                             avg_grad_sim,
                             tckd_norm,
                             nckd_norm,
-                            # targetnorms,
-                            # nontargetnorms,
                         ]
                     )
                 else:

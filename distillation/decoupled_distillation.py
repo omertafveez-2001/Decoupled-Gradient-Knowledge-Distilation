@@ -14,12 +14,6 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, gamma, tempera
     pred_student_tckd = cat_mask(pred_student, gt_mask, other_mask)
     pred_teacher_tckd = cat_mask(pred_teacher, gt_mask, other_mask)
 
-    # log_pred_student = torch.log(pred_student + 1e-5)
-    # tckd_loss = (
-    #     F.kl_div(log_pred_student, pred_teacher, reduction="sum") * (temperature**2)
-    #     / target.shape[0]
-    # )
-
     # Compute Wasserstein distance for TCKD
     student_cdf_tckd = torch.cumsum(pred_student_tckd, dim=1)
     teacher_cdf_tckd = torch.cumsum(pred_teacher_tckd, dim=1)
@@ -32,21 +26,17 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, gamma, tempera
         logits_student / temperature - 1000.0 * gt_mask, dim=1
     )
 
-    # nckd_loss = (
-    #     F.kl_div(log_pred_student_part2, pred_teacher_part2, reduction="sum") * (temperature**2)
-    #     / target.shape[0]
-    # )
-
     # Compute Wasserstein distance for NCKD
     student_cdf_nckd = torch.cumsum(pred_student_nckd, dim=1)
     teacher_cdf_nckd = torch.cumsum(pred_teacher_nckd, dim=1)
     nckd_loss = torch.mean(torch.norm(student_cdf_nckd - teacher_cdf_nckd, p=1, dim=1))
 
-    loss = alpha * tckd_loss + beta * nckd_loss
+    ce_loss = F.cross_entropy(logits_student, target)
 
-    # ce_loss = gamma * F.cross_entropy(logits_student, target)
+    dkd_loss = alpha * tckd_loss + beta * nckd_loss
+    total_loss = gamma * ce_loss + dkd_loss
 
-    return loss, tckd_loss, nckd_loss
+    return total_loss, ce_loss, dkd_loss, tckd_loss, nckd_loss
 
 
 def _get_gt_mask(logits, target):
@@ -90,7 +80,7 @@ class DKD(nn.Module):
         with torch.no_grad():
             logits_teacher = self.teacher(image)
 
-        decoupled_loss, tckd_loss, nckd_loss = dkd_loss(
+        total_loss, ce_loss, dkd_loss, tckd_loss, nckd_loss = dkd_loss(
             logits_student,
             logits_teacher,
             target,
@@ -100,7 +90,9 @@ class DKD(nn.Module):
             self.temperature,
         )
         losses_dict = {
-            "loss_kd": decoupled_loss,
+            "loss_t": total_loss,
+            "loss_kd": dkd_loss,
+            "loss_ce": ce_loss,
             "loss_tckd": tckd_loss,
             "loss_nckd": nckd_loss,
         }

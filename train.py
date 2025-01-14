@@ -11,12 +11,15 @@ warnings.filterwarnings("ignore")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train a student model using knowledge distillation.")
+    parser = argparse.ArgumentParser(
+        description="Train a student model using knowledge distillation."
+    )
     parser.add_argument(
         "--teachermodel",
         type=str,
         default="resnet18",
-        help="Teacher model architecture",)
+        help="Teacher model architecture",
+    )
     parser.add_argument(
         "--studentmodel",
         type=str,
@@ -155,8 +158,12 @@ if __name__ == "__main__":
 
     print("============================================")
     print(f"Using device: {device}")
-    print(f"Teacher Model: {args.teachermodel} with parameters {count_parameters(teachermodel)}")
-    print(f"Student Model {args.studentmodel} with parameters {count_parameters(studentmodel)}")
+    print(
+        f"Teacher Model: {args.teachermodel} with parameters {count_parameters(teachermodel)}"
+    )
+    print(
+        f"Student Model {args.studentmodel} with parameters {count_parameters(studentmodel)}"
+    )
     print(f"Finetuning Epochs {args.epochs[0]}")
     print(f"Distillation Epochs {args.epochs[1]}")
     print(f"Dataset: {args.dataset}")
@@ -220,7 +227,7 @@ if __name__ == "__main__":
 
     logitmatching = StudentModel(args.studentmodel, num_classes)
     decoupledkd = StudentModel(args.studentmodel, num_classes)
-    decoupled_sim = StudentModel(args.studentmodel, num_classes)  
+    decoupled_sim = StudentModel(args.studentmodel, num_classes)
     decoupled_sim2 = StudentModel(args.studentmodel, num_classes)  # cross_covariance
 
     logitmatchingoptimizer = torch.optim.AdamW(
@@ -264,33 +271,33 @@ if __name__ == "__main__":
     )
     dkd_model.train("logs", "models")
 
-    # Decoupled Knowledge Distillation with similarity
-    print(
-        "Distilling knowledge using DKD with alignment"
-    )
-    dkd_model = KnowledgeDistillation(
-        teachermodel,
-        decoupled_sim,
-        teachertrain_loader,
-        teachertest_loader,
-        decoupled_sim_optimizer,
-        device,
-        args,
-        type=f"decoupled_v1_{args.dataset}",
-        alignment=True,
-    )
-    dkd_model.train("logs", "models")
+    # # Decoupled Knowledge Distillation with similarity
+    # print(
+    #     "Distilling knowledge using DKD with alignment"
+    # )
+    # dkd_model = KnowledgeDistillation(
+    #     teachermodel,
+    #     decoupled_sim,
+    #     teachertrain_loader,
+    #     teachertest_loader,
+    #     decoupled_sim_optimizer,
+    #     device,
+    #     args,
+    #     type=f"decoupled_v1_{args.dataset}",
+    #     alignment=True,
+    # )
+    # dkd_model.train("logs", "models")
 
-    print("Distilling knowledge using DKD with alignment and cross covariance")
-    dkd_model = KnowledgeDistillation(
-        teachermodel,
-        decoupled_sim2,
-        teachertrain_loader,
-        teachertest_loader,
-        decoupled_sim2_optimizer,
-        device,
-        args,
-        type=f"decoupled_v2_{args.dataset}",
-        cross_covariance=True,
-    )
-    dkd_model.train("logs", "models")
+    # print("Distilling knowledge using DKD with alignment and cross covariance")
+    # dkd_model = KnowledgeDistillation(
+    #     teachermodel,
+    #     decoupled_sim2,
+    #     teachertrain_loader,
+    #     teachertest_loader,
+    #     decoupled_sim2_optimizer,
+    #     device,
+    #     args,
+    #     type=f"decoupled_v2_{args.dataset}",
+    #     cross_covariance=True,
+    # )
+    # dkd_model.train("logs", "models")
