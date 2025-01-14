@@ -198,6 +198,8 @@ class KnowledgeDistillation:
 
         train_accuracy = (correct_predictions / total_predictions) * 100
         running_loss = running_loss / len(self.train_loader)
+        running_ce_loss = running_ce_loss / len(self.train_loader)
+        running_dkd_loss = running_dkd_loss / len(self.train_loader)
 
         if self.type.startswith("decoupled"):
             avg_grad_similarity = sum(grad_similarities) / len(grad_similarities)
