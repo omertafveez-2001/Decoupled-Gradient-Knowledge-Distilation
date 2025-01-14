@@ -243,19 +243,19 @@ if __name__ == "__main__":
         decoupled_sim2.parameters(), lr=args.learningrates[1]
     )
 
-    # Logit Matching
-    print("Distilling knowledge using Logit Matching...")
-    logit_model = KnowledgeDistillation(
-        teachermodel,
-        logitmatching,
-        teachertrain_loader,
-        teachertest_loader,
-        logitmatchingoptimizer,
-        device,
-        args,
-        type=f"logit_matching",
-    )
-    logit_model.train("logs", "models")
+    # # Logit Matching
+    # print("Distilling knowledge using Logit Matching...")
+    # logit_model = KnowledgeDistillation(
+    #     teachermodel,
+    #     logitmatching,
+    #     teachertrain_loader,
+    #     teachertest_loader,
+    #     logitmatchingoptimizer,
+    #     device,
+    #     args,
+    #     type=f"logit_matching",
+    # )
+    # logit_model.train("logs", "models")
 
     # Decoupled Knowledge Distillation
     print("Distilling knowledge using DKD...")
