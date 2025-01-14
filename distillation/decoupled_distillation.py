@@ -44,9 +44,9 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, gamma, tempera
 
     loss = alpha * tckd_loss + beta * nckd_loss
 
-    ce_loss = gamma * F.cross_entropy(logits_student, target)
+    # ce_loss = gamma * F.cross_entropy(logits_student, target)
 
-    return loss, tckd_loss, nckd_loss, ce_loss
+    return loss, tckd_loss, nckd_loss
 
 
 def _get_gt_mask(logits, target):
@@ -90,7 +90,7 @@ class DKD(nn.Module):
         with torch.no_grad():
             logits_teacher = self.teacher(image)
 
-        decoupled_loss, tckd_loss, nckd_loss, ce_loss = dkd_loss(
+        decoupled_loss, tckd_loss, nckd_loss = dkd_loss(
             logits_student,
             logits_teacher,
             target,
@@ -101,7 +101,6 @@ class DKD(nn.Module):
         )
         losses_dict = {
             "loss_kd": decoupled_loss,
-            "loss_ce": ce_loss,
             "loss_tckd": tckd_loss,
             "loss_nckd": nckd_loss,
         }

@@ -141,8 +141,8 @@ class KnowledgeDistillation:
         grad_similarities = []
         tckd_grad_norms = []
         nckd_grad_norms = []
-        target_norms = []
-        nontarget_norms = []
+        # target_norms = []
+        # nontarget_norms = []
 
         for inputs, labels in self.train_loader:
             inputs, labels = inputs.to(self.device), labels.to(self.device)
@@ -175,8 +175,8 @@ class KnowledgeDistillation:
                 grad_similarities.append(similarity)
                 tckd_grad_norms.append(tckd_grad_norm)
                 nckd_grad_norms.append(nckd_grad_norm)
-                target_norms.append(losses["target_norm"])
-                nontarget_norms.append(losses["nontarget_norm"])
+                # target_norms.append(losses["target_norm"])
+                # nontarget_norms.append(losses["nontarget_norm"])
 
             elif self.type == "logit_matching":
                 logits_student, loss = self.LogitMatching.forward_train(inputs, labels)
@@ -203,8 +203,8 @@ class KnowledgeDistillation:
             avg_grad_similarity = sum(grad_similarities) / len(grad_similarities)
             tckd_grad_norms = sum(tckd_grad_norms) / len(tckd_grad_norms)
             nckd_grad_norms = sum(nckd_grad_norms) / len(nckd_grad_norms)
-            target_norms = sum(target_norms) / len(target_norms)
-            nontarget_norms = sum(nontarget_norms) / len(nontarget_norms)
+            # target_norms = sum(target_norms) / len(target_norms)
+            # nontarget_norms = sum(nontarget_norms) / len(nontarget_norms)
 
             return (
                 running_loss,
@@ -212,8 +212,8 @@ class KnowledgeDistillation:
                 avg_grad_similarity,
                 tckd_grad_norms,
                 nckd_grad_norms,
-                target_norms,
-                nontarget_norms,
+                # target_norms,
+                # nontarget_norms,
             )
 
         return running_loss, train_accuracy
@@ -265,8 +265,8 @@ class KnowledgeDistillation:
                         "avg_grad_similarity",
                         "tckd_grad_norm",
                         "nckd_grad_norm",
-                        "target_norm",
-                        "nontarget_norm",
+                        # "target_norm",
+                        # "nontarget_norm",
                     ]
                 )
             else:
@@ -280,8 +280,8 @@ class KnowledgeDistillation:
                         avg_grad_sim,
                         tckd_norm,
                         nckd_norm,
-                        targetnorms,
-                        nontargetnorms,
+                        # targetnorms,
+                        # nontargetnorms,
                     ) = self.train_kd_step()
                 else:
                     train_loss, train_accuracy = self.train_kd_step()
@@ -302,8 +302,8 @@ class KnowledgeDistillation:
                             avg_grad_sim,
                             tckd_norm,
                             nckd_norm,
-                            targetnorms,
-                            nontargetnorms,
+                            # targetnorms,
+                            # nontargetnorms,
                         ]
                     )
                 else:
