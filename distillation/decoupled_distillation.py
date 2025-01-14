@@ -34,7 +34,8 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, gamma, tempera
     ce_loss = F.cross_entropy(logits_student, target)
 
     decoupled_loss = alpha * tckd_loss + beta * nckd_loss
-    total_loss = gamma * ce_loss + decoupled_loss
+    total_loss = decoupled_loss
+    # total_loss = gamma * ce_loss + decoupled_loss
 
     return total_loss, ce_loss, decoupled_loss, tckd_loss, nckd_loss
 
