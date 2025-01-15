@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-def dkd_loss(logits_student, logits_teacher, target, alpha, beta, mu, epsilon, temperature, v1=False, v2=False):
+def dkd_loss(logits_student, logits_teacher, target, alpha, beta, mu, epsilon, decay, temperature, epochs, v1=False, v2=False):
     # target class logits norms
     target_student_norm = torch.norm(logits_student.gather(1, target.unsqueeze(1))).item()
     
@@ -11,12 +11,15 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, mu, epsilon, t
     non_target_mask.scatter_(1, target.unsqueeze(1), 0)
     non_target_student_norm = torch.norm(logits_student.masked_select(non_target_mask)).item()
     
+    # Fetch masks for non target and target.
     gt_mask = _get_gt_mask(logits_student, target)
     other_mask = _get_other_mask(logits_student, target)
     
+    # Compute the probabilities
     pred_student = F.softmax(logits_student / temperature, dim=1)
     pred_teacher = F.softmax(logits_teacher / temperature, dim=1)
     
+    # Mask the probabilities and sum the probabilities.
     pred_student = cat_mask(pred_student, gt_mask, other_mask)
     pred_teacher = cat_mask(pred_teacher, gt_mask, other_mask)
     
@@ -42,7 +45,6 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, mu, epsilon, t
         / target.shape[0]
     )
 
-    pred_student_part2 = F.softmax(logits_student / temperature - 1000.0 * gt_mask, dim=1)
     
     with torch.enable_grad():
         # compute Partial derivative of the loss w.r.t the logits
@@ -78,9 +80,10 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, mu, epsilon, t
     
     # gradient alignment loss between the target and non-target class gradients
     gradients_alignment = F.mse_loss(target_class_gradients, non_target_class_gradients)
-
         
     if v1:
+        if decay > 0:
+            epsilon = epsilon * (decay**epochs)
         total_loss = alpha * tckd_loss + beta * nckd_loss - epsilon * gradients_alignment
     elif v2:
         # Compute the probabilities
@@ -130,20 +133,21 @@ class DKD(nn.Module):
         self.beta = cfg.hyperparameters[1]
         self.mu = cfg.hyperparameters[2]
         self.epsilon = cfg.hyperparameters[3]
-        self.temperature = cfg.hyperparameters[4]
+        self.decay = cfg.hyperparameters[4]
+        self.temperature = cfg.hyperparameters[5]
         self.student = student
         self.teacher = teacher
-        self.epochs = cfg.epochs[1]
 
         self.v1=v1
         self.v2=v2
         
-    def forward_train(self, image, target, **kwargs):
+    def forward_train(self, image, target, epochs, **kwargs):
         logits_student = self.student(image)
         with torch.no_grad():
             logits_teacher = self.teacher(image)
 
-        decoupled_loss, tckd_loss, nckd_loss, target_norm, nontarget_norm, target_grad_mag, non_target_grad, grad_sim, covariance = dkd_loss(logits_student, logits_teacher, target, self.alpha, self.beta, self.mu, self.epsilon, self.temperature, self.v1, self.v2)
+        decoupled_loss, tckd_loss, nckd_loss, target_norm, nontarget_norm, target_grad_mag, non_target_grad, grad_sim, covariance = dkd_loss(logits_student, logits_teacher, target, self.alpha, 
+                                                                                                                                             self.beta, self.mu, self.epsilon, self.decay, self.temperature, epochs, self.v1, self.v2)
         losses_dict = {
             "loss_kd": decoupled_loss,
             "loss_tckd": tckd_loss,

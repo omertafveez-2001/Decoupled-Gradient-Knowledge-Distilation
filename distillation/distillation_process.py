@@ -105,7 +105,7 @@ class KnowledgeDistillation:
         self.LogitMatching = LogitMatching(self.student, self.teacher, cfg)
         
 
-    def train_kd_step(self):
+    def train_kd_step(self, epochs):
         """
         Performs a single step of knowledge distillation training.
 
@@ -127,7 +127,7 @@ class KnowledgeDistillation:
             self.optimizer.zero_grad()
 
             if self.type.startswith("decoupled"):
-                logits_student, losses = self.DKD.forward_train(inputs, labels)
+                logits_student, losses = self.DKD.forward_train(inputs, labels, epochs)
                 loss = losses["loss_kd"]
 
 
@@ -216,7 +216,7 @@ class KnowledgeDistillation:
 
             for epoch in tqdm(range(self.epochs), desc="KD Epochs"):
                 if self.type.startswith("decoupled"):
-                    train_loss, train_accuracy, avg_grad_sim, targetnorms, nontargetnorms, target_gradmag, nontarget_gradmag, covariance = self.train_kd_step()
+                    train_loss, train_accuracy, avg_grad_sim, targetnorms, nontargetnorms, target_gradmag, nontarget_gradmag, covariance = self.train_kd_step(epoch)
                 else:
                     train_loss, train_accuracy = self.train_kd_step()
                 test_accuracy = self.test()

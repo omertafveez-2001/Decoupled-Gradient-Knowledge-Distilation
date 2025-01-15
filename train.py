@@ -40,8 +40,8 @@ if __name__ == "__main__":
         "--hyperparameters",
         type=float,
         nargs="+",
-        default=[0.5, 0.5, 8, 6, 3],
-        help="Hyperparameters for distillation loss [alpha, beta, mu, epsilon, temperature]",
+        default=[0.5, 0.5, 8, 6, 0.3, 3],
+        help="Hyperparameters for distillation loss [alpha, beta, mu, epsilon, decay, temperature]",
     )
     parser.add_argument(
         "--student_dir",
