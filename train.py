@@ -189,7 +189,7 @@ if __name__ == "__main__":
         print("Loading in the teacher model path...")
         teachermodel.load_state_dict(torch.load(args.teachermodel_path))
         print("Teacher Model Loaded...")
-    else:
+    elif args.experiment =="teacher":
         print("Finetuning teacher model...")
         teacher = Finetune(
             teachermodel,
@@ -209,7 +209,7 @@ if __name__ == "__main__":
         print("Loading in the student model path...")
         studentmodel.load_state_dict(torch.load(args.studentmodel_path))
         print("Student Model Loaded...")
-    else:
+    elif args.experiment=="student":
         print("Finetuning student model...")
         student = Finetune(
             studentmodel,
