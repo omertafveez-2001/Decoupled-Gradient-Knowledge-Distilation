@@ -100,7 +100,6 @@ if __name__ == "__main__":
         help="Choose from logit_matching, decoupled, decoupled_v1, decoupled_v2",
     )
 
-
     args = parser.parse_args()
     set_seed()
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -304,5 +303,3 @@ if __name__ == "__main__":
             v2=True,
         )
         dkd_model.train("logs", "models")
-    else:
-        raise ValueError("Invalid experiment. Choose from logit_matching, decoupled, decoupled_v1, decoupled_v2.")
