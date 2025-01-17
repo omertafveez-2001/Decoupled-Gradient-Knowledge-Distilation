@@ -5,6 +5,7 @@ from tqdm import tqdm
 from distillation.decoupled_distillation import *
 import os
 import torch.nn.functional as F
+import torchvision
 from torchvision.models import resnet18, resnet34, resnet50, resnet101, vgg11, vgg13, vgg16, vgg19
 
 
@@ -13,21 +14,17 @@ class TeacherModel(nn.Module):
         super(TeacherModel, self).__init__()
 
         if model == "resnet18":
-            self.model = resnet18(pretrained=True)
+            self.model = torchvision.models.resnet18(pretrained=True)
         elif model == "resnet34":
-            self.model = resnet34(pretrained=True)
+            self.model = torchvision.models.resnet34(pretrained=True)
         elif model == "resnet50":
-            self.model = resnet50(pretrained=True)
+            self.model = torchvision.models.resnet50(pretrained=True)
         elif model == "resnet101":
-            self.model = resnet101(pretrained=True)
-        elif model == "vgg11":
-            self.model = vgg11(pretrained=True)
-        elif model == "vgg13":
-            self.model = vgg13(pretrained=True)
-        elif model == "vgg16":
-            self.model = vgg16(pretrained=True)
-        elif model == "vgg19":
-            self.model = vgg19(pretrained=True)
+            self.model = torchvision.models.resnet101(pretrained=True)
+        elif model == "mobilenet":
+            self.model = torchvision.models.mobilenet_v2(pretrained=True)
+        elif model == "convnext":
+            self.model = torchvision.models.convnext_tiny(pretrined=True)
         else:
             raise ValueError("Invalid model name")
         
@@ -36,8 +33,6 @@ class TeacherModel(nn.Module):
         else:
             self.model.classifier[-1] = nn.Linear(self.model.classifier[-1].in_features, num_classes)
 
-    
-
     def forward(self, x):
         return self.model(x)
 
@@ -45,23 +40,18 @@ class StudentModel(nn.Module):
     def __init__(self, model, num_classes):
         super(StudentModel, self).__init__()
 
-
         if model == "resnet18":
-            self.model = resnet18(pretrained=False)
+            self.model = torchvision.models.resnet18(pretrained=False)
         elif model == "resnet34":
-            self.model = resnet34(pretrained=False)
+            self.model = torchvision.models.resnet34(pretrained=False)
         elif model == "resnet50":
-            self.model = resnet50(pretrained=False)
+            self.model = torchvision.models.resnet50(pretrained=False)
         elif model == "resnet101":
-            self.model = resnet101(pretrained=False)
-        elif model == "vgg11":
-            self.model = vgg11(pretrained=False)
-        elif model == "vgg13":
-            self.model = vgg13(pretrained=False)
-        elif model == "vgg16":
-            self.model = vgg16(pretrained=False)
-        elif model == "vgg19":
-            self.model = vgg19(pretrained=False)
+            self.model = torchvision.models.resnet101(pretrained=False)
+        elif model == "mobilenet":
+            self.model = torchvision.models.mobilenet_v2(pretrained=False)
+        elif model == "convnext":
+            self.model = torchvision.models.convnext_tiny(pretrined=False)
         else:
             raise ValueError("Invalid model name")
         
