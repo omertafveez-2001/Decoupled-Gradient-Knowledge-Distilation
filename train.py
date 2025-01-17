@@ -116,7 +116,7 @@ if __name__ == "__main__":
     studenttrain_ds = teachertrain_ds
     studenttest_ds = teachertest_ds
 
-    # augmented
+    # Augmented Dataset
     if args.augment or args.bias_eval:
         if args.bias_eval == "stylized":
             teachertrain_ds, teachertest_ds = get_custom_data(
@@ -135,7 +135,7 @@ if __name__ == "__main__":
                 args.dataset, args.augment, root=f"./data/{args.dataset}"
             )
 
-    # original
+    # Student TrainLoader
     studenttrain_loader = get_dataloader(
         studenttrain_ds, batch_size, is_train=True, num_workers=num_workers
     )
@@ -143,7 +143,7 @@ if __name__ == "__main__":
         studenttest_ds, batch_size, is_train=False, num_workers=num_workers
     )
 
-    # augmented/original
+    # Teacher TrainLoader
     teachertrain_loader = get_dataloader(
         teachertrain_ds, batch_size, is_train=True, num_workers=num_workers
     )
@@ -156,8 +156,10 @@ if __name__ == "__main__":
     else:
         num_classes = len(studenttrain_ds.classes)
 
+    # Initializaing Teacher and Student Model
     teachermodel = TeacherModel(args.teachermodel, num_classes)
     studentmodel = StudentModel(args.studentmodel, num_classes)
+
 
     print("============================================")
     print(f"Using device: {device}")
@@ -175,15 +177,18 @@ if __name__ == "__main__":
     if args.bias_eval:
         print(f"Running Bias Evaluation on {args.bias_eval} data")
     print("============================================")
+
+
+    # Optimizer and Loss Function
     teacheroptimizer = torch.optim.AdamW(
         teachermodel.parameters(), lr=args.learningrates[0]
     )
     studentoptimizer = torch.optim.AdamW(
         studentmodel.parameters(), lr=args.learningrates[1]
     )
-
     criterion = nn.CrossEntropyLoss()
 
+    # Training/Loading Teacher Model.
     if args.teachermodel_path:
         print("Loading in the teacher model path...")
         teachermodel.load_state_dict(torch.load(args.teachermodel_path))
@@ -204,6 +209,7 @@ if __name__ == "__main__":
             "logs", "models"
         )
 
+    # Training/Loading Student Model
     if args.studentmodel_path:
         print("Loading in the student model path...")
         studentmodel.load_state_dict(torch.load(args.studentmodel_path))
@@ -224,26 +230,28 @@ if __name__ == "__main__":
             "logs", "models"
         )
 
+    # Initializing Logit Matching, Decoupled KD, Decoupled KD with Alignment, Decoupled KD with Divergence
     logitmatching = StudentModel(args.studentmodel, num_classes)
     decoupledkd = StudentModel(args.studentmodel, num_classes)
-    decoupled_sim = StudentModel(args.studentmodel, num_classes)  
-    decoupled_sim2 = StudentModel(args.studentmodel, num_classes)  # cross_covariance
+    decoupled_align = StudentModel(args.studentmodel, num_classes)  
+    decoupled_divergence = StudentModel(args.studentmodel, num_classes)  # cross_covariance
 
+    # Distiller optimizers
     logitmatchingoptimizer = torch.optim.AdamW(
         logitmatching.parameters(), lr=args.learningrates[1]
     )
     decoupledkdoptimizer = torch.optim.AdamW(
         decoupledkd.parameters(), lr=args.learningrates[1]
     )
-    decoupled_sim_optimizer = torch.optim.AdamW(
-        decoupled_sim.parameters(), lr=args.learningrates[1]
+    decoupled_align_optimizer = torch.optim.AdamW(
+        decoupled_align.parameters(), lr=args.learningrates[1]
     )
-    decoupled_sim2_optimizer = torch.optim.AdamW(
-        decoupled_sim2.parameters(), lr=args.learningrates[1]
+    decoupled_divergence_optimizer = torch.optim.AdamW(
+        decoupled_divergence.parameters(), lr=args.learningrates[1]
     )
 
 
-    # Logit Matching
+    # Distillation Process
     if args.experiment == 'logit_matching':
         print("Distilling knowledge using Logit Matching...")
         logit_model = KnowledgeDistillation(
@@ -259,7 +267,6 @@ if __name__ == "__main__":
         logit_model.train("logs", "models")
     
     elif args.experiment == 'decoupled':
-    # Decoupled Knowledge Distillation  
         print("Distilling knowledge using DKD...")
         dkd_model = KnowledgeDistillation(
             teachermodel,
@@ -274,14 +281,13 @@ if __name__ == "__main__":
         dkd_model.train("logs", "models")
     
     elif args.experiment == 'decoupled_v1':
-        # Decoupled Knowledge Distillation with similarity
-        print("Distilling knowledge using DKD with alignment")
+        print("Distilling knowledge using DKD with Alignment Loss")
         dkd_model = KnowledgeDistillation(
             teachermodel,
-            decoupled_sim,
+            decoupled_align,
             teachertrain_loader,
             teachertest_loader,
-            decoupled_sim_optimizer,
+            decoupled_align_optimizer,
             device,
             args,
             type=f"decoupled_v1_{args.dataset}",
@@ -290,13 +296,13 @@ if __name__ == "__main__":
         dkd_model.train("logs", "models")
     
     elif args.experiment == 'decoupled_v2':
-        print("Distilling knowledge using DKD with alignment and cross covariance")
+        print("Distilling knowledge using DKD with Divergence Loss")
         dkd_model = KnowledgeDistillation(
             teachermodel,
-            decoupled_sim2,
+            decoupled_divergence,
             teachertrain_loader,
             teachertest_loader,
-            decoupled_sim2_optimizer,
+            decoupled_divergence_optimizer,
             device,
             args,
             type=f"decoupled_v2_{args.dataset}",
