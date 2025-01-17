@@ -110,51 +110,51 @@ if __name__ == "__main__":
     os.makedirs(f"logs", exist_ok=True)
 
     # Original Dataset
-    teachertrain_ds, teachertest_ds = get_dataset(
+    train_ds, test_ds = get_dataset(
         args.dataset, args.augment, root=f"./data/{args.dataset}"
     )
-    studenttrain_ds = teachertrain_ds
-    studenttest_ds = teachertest_ds
-
+    distill_train_ds = train_ds
+    distill_test_ds = test_ds
+    
     # Augmented Dataset
     if args.augment or args.bias_eval:
         if args.bias_eval == "stylized":
-            teachertrain_ds, teachertest_ds = get_custom_data(
+            train_ds, test_ds = get_custom_data(
                 args.datasetpath, args.augment
             )
         elif args.bias_eval == "noised":
-            teachertrain_ds, teachertest_ds = get_noised_data(
+            train_ds, test_ds = get_noised_data(
                 args.dataset, noise_size=100, root=f"./data/{args.dataset}"
             )
         elif args.bias_eval == "scrambled":
-            teachertrain_ds, teachertest_ds = get_scrambled_data(
+            train_ds, test_ds = get_scrambled_data(
                 args.dataset, patch_size=56, root=f"./data/{args.dataset}"
             )
         else:
-            teachertrain_ds, teachertest_ds = get_dataset(
+            train_ds, test_ds = get_dataset(
                 args.dataset, args.augment, root=f"./data/{args.dataset}"
             )
 
-    # Student TrainLoader
-    studenttrain_loader = get_dataloader(
-        studenttrain_ds, batch_size, is_train=True, num_workers=num_workers
+    # TrainLoader For student and teacher
+    train_loader = get_dataloader(
+        train_ds, batch_size, is_train=True, num_workers=num_workers
     )
-    studenttest_loader = get_dataloader(
-        studenttest_ds, batch_size, is_train=False, num_workers=num_workers
+    test_loader = get_dataloader(
+        test_ds, batch_size, is_train=False, num_workers=num_workers
     )
 
-    # Teacher TrainLoader
-    teachertrain_loader = get_dataloader(
-        teachertrain_ds, batch_size, is_train=True, num_workers=num_workers
+    # TrainLoaders for Distillers
+    distill_trainloader = get_dataloader(
+        distill_train_ds, batch_size, is_train=True, num_workers=num_workers
     )
-    teachertest_loader = get_dataloader(
-        teachertest_ds, batch_size, is_train=False, num_workers=num_workers
+    distill_testloader = get_dataloader(
+        distill_test_ds, batch_size, is_train=False, num_workers=num_workers
     )
 
     if args.dataset == "SVHN":
         num_classes = 10
     else:
-        num_classes = len(studenttrain_ds.classes)
+        num_classes = len(train_ds.classes)
 
     # Initializaing Teacher and Student Model
     teachermodel = TeacherModel(args.teachermodel, num_classes)
@@ -197,8 +197,8 @@ if __name__ == "__main__":
         print("Finetuning teacher model...")
         teacher = Finetune(
             teachermodel,
-            teachertrain_loader,
-            teachertest_loader,
+            train_loader,
+            test_loader,
             teacheroptimizer,
             criterion,
             device,
@@ -218,8 +218,8 @@ if __name__ == "__main__":
         print("Finetuning student model...")
         student = Finetune(
             studentmodel,
-            studenttrain_loader,
-            teachertest_loader,
+            train_loader,
+            test_loader,
             studentoptimizer,
             criterion,
             device,
@@ -257,8 +257,8 @@ if __name__ == "__main__":
         logit_model = KnowledgeDistillation(
             teachermodel,
             logitmatching,
-            teachertrain_loader,
-            teachertest_loader,
+            distill_trainloader,
+            distill_testloader,
             logitmatchingoptimizer,
             device,
             args,
@@ -271,8 +271,8 @@ if __name__ == "__main__":
         dkd_model = KnowledgeDistillation(
             teachermodel,
             decoupledkd,
-            teachertrain_loader,
-            teachertest_loader,
+            distill_trainloader,
+            distill_testloader,
             decoupledkdoptimizer,
             device,
             args,
@@ -285,8 +285,8 @@ if __name__ == "__main__":
         dkd_model = KnowledgeDistillation(
             teachermodel,
             decoupled_align,
-            teachertrain_loader,
-            teachertest_loader,
+            distill_trainloader,
+            distill_testloader,
             decoupled_align_optimizer,
             device,
             args,
@@ -300,8 +300,8 @@ if __name__ == "__main__":
         dkd_model = KnowledgeDistillation(
             teachermodel,
             decoupled_divergence,
-            teachertrain_loader,
-            teachertest_loader,
+            distill_trainloader,
+            distill_testloader,
             decoupled_divergence_optimizer,
             device,
             args,
