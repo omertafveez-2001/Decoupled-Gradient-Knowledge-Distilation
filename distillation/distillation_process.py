@@ -84,7 +84,7 @@ class KnowledgeDistillation:
         self.test_loader = test_loader
         self.optimizer = optimizer
         self.device = device
-        self.epochs = cfg.epochs[1]
+        self.epochs = cfg.epochs
         self.output_dir = cfg.distill_dir
         self.type = type
         

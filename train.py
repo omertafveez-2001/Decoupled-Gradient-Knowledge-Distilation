@@ -32,9 +32,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--epochs",
         type=int,
-        nargs="+",
-        default=[10, 20, 30],
-        help="Number of epochs to [finetune, distill]",
+        default=15,
+        help="Number of epochs",
     )
     parser.add_argument(
         "--hyperparameters",
@@ -62,11 +61,10 @@ if __name__ == "__main__":
         help="Directory for distillation saving logs and models",
     )
     parser.add_argument(
-        "--learningrates",
+        "--learningrate",
         type=float,
-        nargs="+",
-        default=[0.001, 0.1],
-        help="Learning rates for [finetune, distill]",
+        default=0.001,
+        help="Learning rate",
     )
     parser.add_argument("--augment", type=bool, default=False, help="Augment data")
     parser.add_argument(
@@ -165,8 +163,7 @@ if __name__ == "__main__":
     print(f"Using device: {device}")
     print(f"Teacher Model: {args.teachermodel} with parameters {count_parameters(teachermodel)}")
     print(f"Student Model {args.studentmodel} with parameters {count_parameters(studentmodel)}")
-    print(f"Finetuning Epochs {args.epochs[0]}")
-    print(f"Distillation Epochs {args.epochs[1]}")
+    print(f"Number of Epochs {args.epochs}")
     print(f"Dataset: {args.dataset}")
     print(f"Batch Size: {args.batchsize}")
     if args.augment:
@@ -181,10 +178,10 @@ if __name__ == "__main__":
 
     # Optimizer and Loss Function
     teacheroptimizer = torch.optim.AdamW(
-        teachermodel.parameters(), lr=args.learningrates[0]
+        teachermodel.parameters(), lr=args.learningrate
     )
     studentoptimizer = torch.optim.AdamW(
-        studentmodel.parameters(), lr=args.learningrates[1]
+        studentmodel.parameters(), lr=args.learningrate
     )
     criterion = nn.CrossEntropyLoss()
 
@@ -202,7 +199,7 @@ if __name__ == "__main__":
             teacheroptimizer,
             criterion,
             device,
-            args.epochs[0],
+            args.epochs,
             args.teacher_dir,
         )
         teacher_trainacc, teacher_testacc, teacher_losses = teacher.train(
@@ -223,7 +220,7 @@ if __name__ == "__main__":
             studentoptimizer,
             criterion,
             device,
-            args.epochs[1],
+            args.epochs,
             args.student_dir,
         )
         student_trainacc, student_testacc, student_losses = student.train(
@@ -238,16 +235,16 @@ if __name__ == "__main__":
 
     # Distiller optimizers
     logitmatchingoptimizer = torch.optim.AdamW(
-        logitmatching.parameters(), lr=args.learningrates[1]
+        logitmatching.parameters(), lr=args.learningrate
     )
     decoupledkdoptimizer = torch.optim.AdamW(
-        decoupledkd.parameters(), lr=args.learningrates[1]
+        decoupledkd.parameters(), lr=args.learningrate
     )
     decoupled_align_optimizer = torch.optim.AdamW(
-        decoupled_align.parameters(), lr=args.learningrates[1]
+        decoupled_align.parameters(), lr=args.learningrate
     )
     decoupled_divergence_optimizer = torch.optim.AdamW(
-        decoupled_divergence.parameters(), lr=args.learningrates[1]
+        decoupled_divergence.parameters(), lr=args.learningrate
     )
 
 
