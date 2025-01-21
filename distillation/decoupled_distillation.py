@@ -169,7 +169,7 @@ class LogitMatching(nn.Module):
         self.temperature = cfg.hyperparameters[4]
         self.student = student
         self.teacher = teacher
-        self.epochs = cfg.epochs[1]
+        self.epochs = cfg.epochs
     
     def forward_train(self, image, target, **kwargs):
         student_logits = self.student(image)
