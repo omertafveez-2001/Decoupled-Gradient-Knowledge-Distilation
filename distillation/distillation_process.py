@@ -6,6 +6,7 @@ from distillation.decoupled_distillation import *
 import os
 import torch.nn.functional as F
 import torchvision
+from transformers import ViTForImageClassification
 
 
 class TeacherModel(nn.Module):
