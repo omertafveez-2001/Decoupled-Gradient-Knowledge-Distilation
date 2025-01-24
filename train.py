@@ -11,12 +11,15 @@ warnings.filterwarnings("ignore")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train a student model using knowledge distillation.")
+    parser = argparse.ArgumentParser(
+        description="Train a student model using knowledge distillation."
+    )
     parser.add_argument(
         "--teachermodel",
         type=str,
         default="resnet18",
-        help="Teacher model architecture",)
+        help="Teacher model architecture",
+    )
     parser.add_argument(
         "--studentmodel",
         type=str,
@@ -113,13 +116,11 @@ if __name__ == "__main__":
     )
     distill_train_ds = train_ds
     distill_test_ds = test_ds
-    
+
     # Augmented Dataset
     if args.augment or args.bias_eval:
         if args.bias_eval == "stylized":
-            train_ds, test_ds = get_custom_data(
-                args.datasetpath, args.augment
-            )
+            train_ds, test_ds = get_custom_data(args.datasetpath, args.augment)
         elif args.bias_eval == "noised":
             train_ds, test_ds = get_noised_data(
                 args.dataset, noise_size=100, root=f"./data/{args.dataset}"
@@ -158,11 +159,14 @@ if __name__ == "__main__":
     teachermodel = TeacherModel(args.teachermodel, num_classes)
     studentmodel = StudentModel(args.studentmodel, num_classes)
 
-
     print("============================================")
     print(f"Using device: {device}")
-    print(f"Teacher Model: {args.teachermodel} with parameters {count_parameters(teachermodel)}")
-    print(f"Student Model {args.studentmodel} with parameters {count_parameters(studentmodel)}")
+    print(
+        f"Teacher Model: {args.teachermodel} with parameters {count_parameters(teachermodel)}"
+    )
+    print(
+        f"Student Model {args.studentmodel} with parameters {count_parameters(studentmodel)}"
+    )
     print(f"Number of Epochs {args.epochs}")
     print(f"Dataset: {args.dataset}")
     print(f"Batch Size: {args.batchsize}")
@@ -174,7 +178,6 @@ if __name__ == "__main__":
     if args.bias_eval:
         print(f"Running Bias Evaluation on {args.bias_eval} data")
     print("============================================")
-
 
     # Optimizer and Loss Function
     teacheroptimizer = torch.optim.AdamW(
@@ -190,7 +193,7 @@ if __name__ == "__main__":
         print("Loading in the teacher model path...")
         teachermodel.load_state_dict(torch.load(args.teachermodel_path))
         print("Teacher Model Loaded...")
-    elif args.experiment =="teacher":
+    elif args.experiment == "teacher":
         print("Finetuning teacher model...")
         teacher = Finetune(
             teachermodel,
@@ -211,7 +214,7 @@ if __name__ == "__main__":
         print("Loading in the student model path...")
         studentmodel.load_state_dict(torch.load(args.studentmodel_path))
         print("Student Model Loaded...")
-    elif args.experiment=="student":
+    elif args.experiment == "student":
         print("Finetuning student model...")
         student = Finetune(
             studentmodel,
@@ -230,8 +233,10 @@ if __name__ == "__main__":
     # Initializing Logit Matching, Decoupled KD, Decoupled KD with Alignment, Decoupled KD with Divergence
     logitmatching = StudentModel(args.studentmodel, num_classes)
     decoupledkd = StudentModel(args.studentmodel, num_classes)
-    decoupled_align = StudentModel(args.studentmodel, num_classes)  
-    decoupled_divergence = StudentModel(args.studentmodel, num_classes)  # cross_covariance
+    decoupled_align = StudentModel(args.studentmodel, num_classes)
+    decoupled_divergence = StudentModel(
+        args.studentmodel, num_classes
+    )  # cross_covariance
 
     # Distiller optimizers
     logitmatchingoptimizer = torch.optim.AdamW(
@@ -247,9 +252,8 @@ if __name__ == "__main__":
         decoupled_divergence.parameters(), lr=args.learningrate
     )
 
-
     # Distillation Process
-    if args.experiment == 'logit_matching':
+    if args.experiment == "logit_matching":
         print("Distilling knowledge using Logit Matching...")
         logit_model = KnowledgeDistillation(
             teachermodel,
@@ -262,8 +266,8 @@ if __name__ == "__main__":
             type=f"logit_matching",
         )
         logit_model.train("logs", "models")
-    
-    elif args.experiment == 'decoupled':
+
+    elif args.experiment == "decoupled":
         print("Distilling knowledge using DKD...")
         dkd_model = KnowledgeDistillation(
             teachermodel,
@@ -276,8 +280,8 @@ if __name__ == "__main__":
             type=f"decoupled_{args.dataset}",
         )
         dkd_model.train("logs", "models")
-    
-    elif args.experiment == 'decoupled_v1':
+
+    elif args.experiment == "decoupled_v1":
         print("Distilling knowledge using DKD with Alignment Loss")
         dkd_model = KnowledgeDistillation(
             teachermodel,
@@ -291,8 +295,8 @@ if __name__ == "__main__":
             v1=True,
         )
         dkd_model.train("logs", "models")
-    
-    elif args.experiment == 'decoupled_v2':
+
+    elif args.experiment == "decoupled_v2":
         print("Distilling knowledge using DKD with Divergence Loss")
         dkd_model = KnowledgeDistillation(
             teachermodel,

@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from PIL import Image
 import torch
@@ -293,6 +294,8 @@ def get_dataset(name, augment=False, root="./data"):
         return get_SVHN_dataset(root, TRAIN_TFMS, TEST_TFMS)
     elif name == "Food101":
         return get_Food101_dataset(root, TRAIN_TFMS, TEST_TFMS)
+    elif name == "TinyImageNet":
+        return get_TinyImageNet_dataset(root, augment=augment)
     else:
         raise ValueError("Received invalid dataset name - please check data.py")
 
@@ -369,3 +372,100 @@ def get_Food101_dataset(root: str, TRAIN_TFMS, TEST_TFMS):
     )
 
     return trainset, testset
+
+
+def get_TinyImageNet_dataset(root: str, augment=False):
+    IMAGE_SIZE = 224
+    if augment:
+        TRAIN_TFMS = transforms.Compose(
+            [
+                transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
+        TEST_TFMS = transforms.Compose(
+            [
+                transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
+    else:
+        TRAIN_TFMS = transforms.Compose(
+            [
+                transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+                transforms.ToTensor(),
+            ]
+        )
+        TEST_TFMS = transforms.Compose(
+            [
+                transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+                transforms.ToTensor(),
+            ]
+        )
+
+    trainset = TinyImageNet(root, split="train", transform=TRAIN_TFMS)
+    testset = TinyImageNet(root, split="val", transform=TEST_TFMS)
+
+    return trainset, testset
+
+
+class TinyImageNet(Dataset):
+    def __init__(self, root, split="train", transform=None):
+        self.root = root
+        self.split = split
+        self.transform = transform
+
+        self.data = []
+        self.labels = []
+        self.label_map = self._create_label_map()
+
+        self._load_data()
+
+    def _create_label_map(self):
+        label_map = {}
+        with open(os.path.join(self.root, "wnids.txt"), "r") as f:
+            for idx, line in enumerate(f.readlines()):
+                label_map[line.strip()] = idx
+        return label_map
+
+    def _load_data(self):
+        if self.split == "train":
+            for label in self.label_map.keys():
+                label_dir = os.path.join(self.root, "train", label, "images")
+                for img_name in os.listdir(label_dir):
+                    img_path = os.path.join(label_dir, img_name)
+                    self.data.append(img_path)
+                    self.labels.append(self.label_map[label])
+        elif self.split == "val":
+            val_img_dir = os.path.join(self.root, "val", "images")
+            with open(os.path.join(self.root, "val", "val_annotations.txt"), "r") as f:
+                val_annotations = f.readlines()
+            for annotation in val_annotations:
+                parts = annotation.split("\t")
+                img_name = parts[0]
+                img_path = os.path.join(val_img_dir, img_name)
+                label = parts[1]
+                self.data.append(img_path)
+                self.labels.append(self.label_map[label])
+        else:
+            raise ValueError("Split must be 'train' or 'val'")
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        img_path = self.data[idx]
+        label = self.labels[idx]
+
+        img = Image.open(img_path).convert("RGB")
+        if self.transform:
+            img = self.transform(img)
+
+        return img, label
