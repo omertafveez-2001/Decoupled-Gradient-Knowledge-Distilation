@@ -9,8 +9,8 @@ import torchvision
 
 
 class TeacherModel(nn.Module):
-    def _init_(self, model, num_classes):
-        super(TeacherModel, self)._init_()
+    def __init__(self, model, num_classes):
+        super(TeacherModel, self).__init__()
 
         if model == "resnet18":
             self.model = torchvision.models.resnet18(pretrained=True)
