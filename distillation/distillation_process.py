@@ -3,7 +3,7 @@ import torch.nn as nn
 import csv
 from tqdm import tqdm
 from distillation.decoupled_distillation import *
-from vit import *
+from distillation.vit import *
 import os
 import torch.nn.functional as F
 import torchvision
