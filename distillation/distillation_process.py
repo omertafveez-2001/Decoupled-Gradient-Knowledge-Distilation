@@ -32,7 +32,7 @@ class TeacherModel(nn.Module):
             # self.model = ViTForImageClassification.from_pretrained(
             #     "WinKawaks/vit-small-patch16-224"
             # )
-            self.model = vit_small_patch16_224(num_classes=num_classes, pretrained=True)
+            self.model = timm.create_model("vit_small_patch16_224", pretrained=True)
         elif model == "swin_s":
             self.model = torchvision.models.swin_s(pretrained=True)
         else:
@@ -40,10 +40,8 @@ class TeacherModel(nn.Module):
 
         if model.startswith("resnet"):
             self.model.fc = nn.Linear(self.model.fc.in_features, num_classes)
-        # elif model == "ViT-S":
-        #     self.model.classifier = nn.Linear(
-        #         self.model.classifier.in_features, num_classes
-        #     )
+        elif model == "ViT-S":
+            self.model.head = nn.Linear(self.model.head.in_features, out_features=100)
         elif model == "swin_s":
             self.model.head = nn.Linear(self.model.head.in_features, num_classes)
         else:
