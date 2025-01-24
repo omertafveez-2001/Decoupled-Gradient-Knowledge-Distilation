@@ -3,10 +3,13 @@ import torch.nn as nn
 import csv
 from tqdm import tqdm
 from distillation.decoupled_distillation import *
+from vit import *
 import os
 import torch.nn.functional as F
 import torchvision
 from transformers import ViTForImageClassification
+
+import timm
 
 
 class TeacherModel(nn.Module):
@@ -26,9 +29,10 @@ class TeacherModel(nn.Module):
         elif model == "convnext":
             self.model = torchvision.models.convnext_tiny(pretrined=True)
         elif model == "ViT-S":
-            self.model = ViTForImageClassification.from_pretrained(
-                "WinKawaks/vit-small-patch16-224"
-            )
+            # self.model = ViTForImageClassification.from_pretrained(
+            #     "WinKawaks/vit-small-patch16-224"
+            # )
+            self.model = vit_small_patch16_224(num_classes=num_classes, pretrained=True)
         elif model == "swin_s":
             self.model = torchvision.models.swin_s(pretrained=True)
         else:
@@ -36,10 +40,10 @@ class TeacherModel(nn.Module):
 
         if model.startswith("resnet"):
             self.model.fc = nn.Linear(self.model.fc.in_features, num_classes)
-        elif model == "ViT-S":
-            self.model.classifier = nn.Linear(
-                self.model.classifier.in_features, num_classes
-            )
+        # elif model == "ViT-S":
+        #     self.model.classifier = nn.Linear(
+        #         self.model.classifier.in_features, num_classes
+        #     )
         elif model == "swin_s":
             self.model.head = nn.Linear(self.model.head.in_features, num_classes)
         else:
