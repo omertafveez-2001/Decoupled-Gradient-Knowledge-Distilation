@@ -117,8 +117,8 @@ class KnowledgeDistillation:
         self.output_dir = cfg.distill_dir
         self.type = type
 
-        self.teacher.to(device)
-        self.student.to(device)
+        self.student_name = cfg.studentmodel
+        self.teacher_name = cfg.teachermodel
 
         self.DKD = DKD(self.student, self.teacher, cfg, v1, v2)
         self.LogitMatching = LogitMatching(self.student, self.teacher, cfg)
@@ -225,8 +225,8 @@ class KnowledgeDistillation:
             epochs (int): Number of epochs for training.
             output_dir (str): Directory for saving the student model and logs.
         """
-        log_path = os.path.join(log_path, f"{self.output_dir}_{self.type}.csv")
-        model_path = os.path.join(model_path, f"{self.output_dir}_{self.type}.pth")
+        log_path = os.path.join(log_path, f"{self.output_dir}_{self.type}_{self.student_name}_{self.teacher_name}.csv")
+        model_path = os.path.join(model_path, f"{self.output_dir}_{self.type}_{self.student_name}_{self.teacher_name}.pth")
 
         self.teacher.eval()
         self.student.train()

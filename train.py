@@ -156,8 +156,8 @@ if __name__ == "__main__":
         num_classes = len(train_ds.classes)
 
     # Initializaing Teacher and Student Model
-    teachermodel = TeacherModel(args.teachermodel, num_classes)
-    studentmodel = StudentModel(args.studentmodel, num_classes)
+    teachermodel = TeacherModel(args.teachermodel, num_classes).cuda()
+    studentmodel = StudentModel(args.studentmodel, num_classes).cuda()
 
     print("============================================")
     print(f"Using device: {device}")
@@ -195,6 +195,7 @@ if __name__ == "__main__":
         print("Teacher Model Loaded...")
     elif args.experiment == "teacher":
         print("Finetuning teacher model...")
+        teacher_dir = f"{args.teacher_dir}_{args.teachermodel}_{args.dataset}"
         teacher = Finetune(
             teachermodel,
             train_loader,
@@ -203,7 +204,7 @@ if __name__ == "__main__":
             criterion,
             device,
             args.epochs,
-            args.teacher_dir,
+            teacher_dir,
         )
         teacher_trainacc, teacher_testacc, teacher_losses = teacher.train(
             "logs", "models"
@@ -216,6 +217,7 @@ if __name__ == "__main__":
         print("Student Model Loaded...")
     elif args.experiment == "student":
         print("Finetuning student model...")
+        student_dir = f"{args.teacher_dir}_{args.studentmodel}_{args.dataset}"
         student = Finetune(
             studentmodel,
             train_loader,
@@ -224,19 +226,17 @@ if __name__ == "__main__":
             criterion,
             device,
             args.epochs,
-            args.student_dir,
+            student_dir,
         )
         student_trainacc, student_testacc, student_losses = student.train(
             "logs", "models"
         )
 
     # Initializing Logit Matching, Decoupled KD, Decoupled KD with Alignment, Decoupled KD with Divergence
-    logitmatching = StudentModel(args.studentmodel, num_classes)
-    decoupledkd = StudentModel(args.studentmodel, num_classes)
-    decoupled_align = StudentModel(args.studentmodel, num_classes)
-    decoupled_divergence = StudentModel(
-        args.studentmodel, num_classes
-    )  # cross_covariance
+    logitmatching = StudentModel(args.studentmodel, num_classes).cuda()
+    decoupledkd = StudentModel(args.studentmodel, num_classes).cuda()
+    decoupled_align = StudentModel(args.studentmodel, num_classes).cuda()
+    decoupled_divergence = StudentModel(args.studentmodel, num_classes)
 
     # Distiller optimizers
     logitmatchingoptimizer = torch.optim.AdamW(
