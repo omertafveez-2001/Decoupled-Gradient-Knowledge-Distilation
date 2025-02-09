@@ -4,7 +4,7 @@ This repository implements *Decoupled Gradient Knowledge Distillation*: an exten
 In this implementation, we introduce the gradients of the Target Class Logits and Non-Target class logits in the loss function and maximize their mean-squared error loss. The loss function is given as follows. 
 
 ```math 
-\text{Loss\_{DKD}} = \alpha * TCKD + \beta * NCKD + \epsilon \text{MSE(Target class gradients, Non target class gradients)}  
+\text{Loss\_{DKD}} = \alpha * TCKD + \beta * NCKD - \epsilon \text{MSE(Target class gradients, Non target class gradients)}  
 ```
 
 While it is non-trivial to maximize mean-squared-error loss, the experimentations led to better performance on maximizing this term. This was because maximizing the mean-squared error loss led to the student's target-class logits matching closely with the teacher's target class logits, therefore matching the **fidelity** of the system. <br> 
