@@ -4,7 +4,7 @@ This repository implements *Decoupled Gradient Knowledge Distillation*: an exten
 In this implementation, we introduce the gradients of the Target Class Logits and Non-Target class logits in the loss function and maximize their mean-squared error loss. The loss function is given as follows. 
 
 ```math 
-\text{Loss\_{DKD}} = \alpha * TCKD + \beta * NCKD - \epsilon \text{MSE(Target class gradients, Non target class gradients)}  
+Loss_{DKD} = \alpha * TCKD + \beta * NCKD - \epsilon * \text{MSE(Target class gradients, Non target class gradients)}  
 ```
 
 While it is non-trivial to maximize mean-squared-error loss, the experimentations led to better performance on maximizing this term. This was because maximizing the mean-squared error loss led to the student's target-class logits matching closely with the teacher's target class logits, therefore matching the **fidelity** of the system. <br> 
@@ -14,7 +14,9 @@ We noticed the following observations by maximizing the mean-squared error term 
 
 - When the student makes a correct prediction but the teacher does not, the **mean-squared error (MSE) loss** is higher. This suggests that the loss function prioritizes aligning the student's logits with the teacher’s, emphasizing fidelity over correctness alone.  
 
-- The student's **intra-class feature representations** trained with this loss function are more compact compared to prior methods in the literature. This leads to a **faster neural collapse**, improving overall model efficiency and generalization. 
+- The student's **intra-class feature representations** trained with this loss function are more compact compared to prior methods in the literature. This leads to a **faster neural collapse**, improving overall model efficiency and generalization.
+
+- The overall affect is seen as faster convergence as show in the figures below as well. 
 
 
 
