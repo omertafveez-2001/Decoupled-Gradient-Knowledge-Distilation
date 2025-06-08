@@ -16,7 +16,40 @@ We noticed the following observations by maximizing the mean-squared error term 
 
 - The student's **intra-class feature representations** trained with this loss function are more compact compared to prior methods in the literature. This leads to a **faster neural collapse**, improving overall model efficiency and generalization.
 
-- The overall affect is seen as faster convergence as show in the figures below as well. 
+## Convergence Rates
+<img src="imgs/results1.png" alt="Transformer Architecture" width="650"/>
+<br>
 
+The overall effect is seen as an increase in convergence rates in Decoupled Gradient Knowledge Distillation (**DKD Align**) orange curve. <br>
 
+## Comparison Table
+The table below represents our results *so-far* on the experiments conducted. The *dataset* column is formatted as follows: `<Dataset>-<Teacher Model>-<Student Model>`. 
+
+| Dataset                                 | Gradient Decoupled KD | Decoupled KD |
+|-----------------------------------------|--------------------|------------------------|
+| CIFAR-100 - Resnet50-resnet18           | **62.01%**             | 61.07%                 |
+| CIFAR100 - VIT-S-resnet18               | **58.64%**             | 57.31%                 |
+| CIFAR100 - Self Distillation Resnet18   | **62.35%**             | 61.53%                 |
+| CIFAR100 - Self Distillation Resnet50   | 53.39%             | **54.31%**                 |
+| CIFAR100 - Self Distillation Resnet101  | **55.94%**             | 48.99%                 |
+| CIFAR-100 ShuffleNetv2 - Resnet50       | 55.49%             | **56.48%**                 |
+| CIFAR-100 ShuffleNetv2 - VIT-S          | 55.56%             | **55.84%**                 |
+| Imagenet resnet50-18                    | **48.42%**             | 45.48%                 |
+| Imagenet resnet50-shufflenet            | 44.90%             | **45.59%**                 |
+| Imagenet vit-s-resnet18                 | **41.81%**             | 41.57%                 |
+| Imagenet vit-s-shufflenet              | **39.74%**             | 39.42%                 |
+| Imagenet self distillation resnet101    | **30.49%**             | 0.50%                  |
+| Imagenet self distillation resnet50     | **48.09%**             | 48.06%                 |
+| Imagenet self distillation resnet18     | **48.29%**             | 46.40%                 |
+
+*Ourperforming experiments are bolded* <br>
+
+From the table above, we infered that our variant was not successful in ourperforming Decoupled KD in mobile networks or smaller CNN models such as ShuffleNetV2 and MobileNet, however it was still consistent across 10/14 experiments. 
+
+# Future Work
+We discontinued the project due to some technical concerns in deriving the loss function through BPTT (Backpropogation through time) which resulted in inconsistent understanding of the model's performance and the loss function itself. Therefore, for the future work I intend to continue to 
+
+- Disect the loss function and complete its derivation to further develop the understanding of the model's architectural differences (benefits and disadvantages). In doing so, it is highly important to understand the role of Non Target Class and Target Class Logits in this space.
+- Continue the experimentation across more complex datasets in image classification: Animal10, and OOD Generalization (Scrambled, Noisy)
+- Continue the experimentations across object detection datasets: MS COCO
 
