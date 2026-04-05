@@ -3,8 +3,23 @@ import csv
 from tqdm import tqdm
 import os
 
+
+def build_lr_scheduler(optimizer, warmup_epochs=20):
+    milestones = {60, 75, 90}
+
+    def lr_lambda(epoch):
+        if epoch < warmup_epochs:
+            return (epoch + 1) / warmup_epochs
+        factor = 1.0
+        for m in sorted(milestones):
+            if epoch >= m:
+                factor *= 0.1
+        return factor
+
+    return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+
 class Finetune:
-    def __init__(self, model, train_loader, test_loader, optimizer, criterion, device, epochs, output_dir):
+    def __init__(self, model, train_loader, test_loader, optimizer, criterion, device, epochs, output_dir, dataset):
         """
         Initializes the Finetune class.
 
@@ -25,6 +40,8 @@ class Finetune:
         self.model.to(device)
         self.epochs = epochs
         self.output_dir = output_dir
+        self.dataset = dataset
+        self.scheduler = build_lr_scheduler(optimizer)
 
     def train_step(self):
         """
@@ -75,7 +92,7 @@ class Finetune:
 
         return 100 * correct / total
 
-    def train(self, log_path, model_path):
+    def train(self):
         """
         Trains the model over a specified number of epochs.
 
@@ -86,8 +103,12 @@ class Finetune:
         test_accuracies = []
         train_accuracies = []
         losses = []
-        log_path = os.path.join(log_path, f"{self.output_dir}.csv")
-        model_path = os.path.join(model_path, f"{self.output_dir}.pth")
+        log_dir = f"logs-results/{self.dataset}"
+        checkpoint_dir = f"checkpoints/{self.dataset}"
+        os.makedirs(log_dir, exist_ok=True)
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        log_path = os.path.join(log_dir, f"{self.output_dir}.csv")
+        model_path = os.path.join(checkpoint_dir, f"{self.output_dir}.pth")
 
         with open(log_path, 'w') as f:
             writer = csv.writer(f)
@@ -95,14 +116,16 @@ class Finetune:
 
             for epoch in tqdm(range(self.epochs), desc="Epochs"):
                 train_loss, train_accuracy = self.train_step()
+                self.scheduler.step()
                 test_accuracy = self.test()
                 
-                print(f"Epoch {epoch+1}/{self.epochs}, Loss: {train_loss:.4f}, "
+                if epoch % 10 == 0 or epoch == self.epochs - 1:
+                    print(f"Epoch {epoch+1}/{self.epochs}, Loss: {train_loss:.4f}, "
                       f"Train Accuracy: {train_accuracy:.2f}%, Test Accuracy: {test_accuracy:.2f}%")
 
                 writer.writerow([epoch + 1, train_loss, train_accuracy, test_accuracy])
                 test_accuracies.append(test_accuracy)
-                train_accuracies.append(train_accuracies)
+                train_accuracies.append(train_accuracy)
                 losses.append(train_loss)
 
         torch.save(self.model.state_dict(), model_path)
