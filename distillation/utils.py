@@ -22,7 +22,7 @@ def cat_mask(t, mask1, mask2):
 
 def get_loss(tckd_loss, nckd_loss, gradients_loss, alpha, beta, epsilon, distillation_method):
     if distillation_method == "decoupled_gradient_distillation":
-        return alpha * tckd_loss + beta * nckd_loss - epsilon * gradients_loss
+        return alpha * tckd_loss + beta * nckd_loss - epsilon * gradients_loss / (gradients_loss.detach() + 1e-8)
     else:
         return alpha * tckd_loss + beta * nckd_loss
 
@@ -106,6 +106,6 @@ def dkd_loss(logits_student, logits_teacher, target, alpha, beta, epsilon, tempe
     # gradient loss between the target and non-target class gradients
     gradients_loss = F.mse_loss(target_class_gradients, non_target_class_gradients)
 
-    total_loss = get_loss(nckd_loss, tckd_loss, gradients_loss, alpha, beta, epsilon, distillation_method)
+    total_loss = get_loss(tckd_loss, nckd_loss, gradients_loss, alpha, beta, epsilon, distillation_method)
         
     return total_loss, tckd_loss, nckd_loss, target_student_norm, non_target_student_norm, target_grad_magnitude.item(), non_target_grad_magnitude.item(), cosine_similarity.item(), covariance
